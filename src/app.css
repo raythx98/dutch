@@ -1,0 +1,16 @@
+:root {
+	--primary-color: #4f46e5;
+	--primary-hover: #4338ca;
+	--bg-color: #f9fafb;
+	--text-color: #111827;
+	--border-color: #d1d5db;
+}
+
+body {
+	background-color: var(--bg-color);
+	color: var(--text-color);
+}
+
+* {
+	box-sizing: border-box;
+}
