@@ -1,77 +1,78 @@
 # Project Requirements
 
-## Active Tasks
+## Core Overview
+Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB (Local Caching), and GraphQL (Backend).
 
-### Data & State Management
+## Active Implementation Phases
+
+### Phase 1: Core Data & Settings
 - [ ] **Currencies & IndexedDB:**
-    - [ ] Install `idb` (lightweight wrapper) for IndexedDB interactions.
-    - [ ] Create a `currencyStore` that syncs with IndexedDB.
-    - [ ] On App Load (or Dashboard mount): Fetch `currencies` via GraphQL and update the store/IndexedDB.
-    - [ ] 
-    - [ ] On Logout: Clear the `currencies` store/IndexedDB to ensure a fresh state for the next user.
+    - [ ] Install `idb` library.
+    - [ ] Create `currencyStore` synced with IndexedDB.
+    - [ ] **Sync Logic:** Fetch `currencies` on app load/login; Clear on logout.
+- [ ] **Settings:**
+    - [ ] Create `/settings` page.
+    - [ ] Implement "Refresh Currencies" button (fetches latest from API).
+    - [ ] Add entry point (Settings button) in Dashboard.
 
-### Dashboard (Group Management)
-- [ ] **Settings**
-    - [ ] Add a settings button which navigates to a page with basic settings
-    - [ ] There should be a button that allows to pull latest set of currencies and update IndexedDb
-        - [ ] On success or failure should trigger the global toast
-- [ ] **View Groups:**
-    - [ ] Fetch `groups` query on mount.
-    - [ ] Display groups as cards/list items showing the group name.
-    - [ ] Clicking a group navigates to `/groups/[id]`.
-- [ ] **Create Group:**
-    - [ ] UI: Simple form (inline or modal) with a "Group Name" input.
-    - [ ] Action: Call `addGroup` mutation.
-    - [ ] UX: Optimistically update the list or refetch groups upon success.
+### Phase 2: Dashboard & Group Management
+- [ ] **Group List:**
+    - [ ] Fetch `groups` query.
+    - [ ] Display groups as clickable cards navigating to `/groups/[id]`.
+- [ ] **Group Creation:**
+    - [ ] UI: Modal with "Group Name" input.
+    - [ ] Action: `addGroup` mutation.
+    - [ ] UX: Optimistic update or auto-refetch.
+- [ ] **Global Dashboard Stats:**
+    - [ ] Fetch expense summaries for *all* groups.
+    - [ ] Aggregate "You Owe" and "You are Owed" by currency.
+    - [ ] Display totals prominently on the dashboard.
 
-### Group Detail Page (`/groups/[id]`)
-- [ ] **Layout & State:**
-    - [ ] Fetch `expenses(groupId)` summary on mount.
-    - [ ] Store group context (members, current user ID) for easy access in sub-components.
-- [ ] **Members Management:**
-    - [ ] UI: List current members (names).
-    - [ ] Action: "Add Member" input taking an email.
-    - [ ] Mutation: Call `addMember`.
+### Phase 3: Group Details & Members
+- [ ] **Layout Structure:**
+    - [ ] Header: Group Name & **Fixed Balance Summary** (broken down by currency).
+    - [ ] Navigation: Tabs for "Expenses" and "Members".
+- [ ] **Member Management:**
+    - [ ] Action: "Add Member" button opening a Modal.
+    - [ ] Logic: `addMember` mutation with email input.
+    - [ ] List: Show names, labeling the current user as "**You**".
+
+### Phase 4: Expense Management (UX Focused)
 - [ ] **Expense List:**
-    - [ ] Display `expenses` list, which is already sorted by expenseAt DESC (newest first).
-    - [ ] Distinguish visually between 'generic' (Expense) and 'repayment' (Settlement).
-    - [ ] Show key details: Amount, Currency, Payer(s), Description/Type.
-    - [ ] Action: "Delete" button per item (calls `deleteExpense`).
-
-### Expense Creation
-- [ ] **Add Expense Form:**
-    - [ ] Inputs: Amount, Currency (dropdown from store), Date, Split details.
-    - [ ] Split Payer Logic: Default to simple "Equal Split" between all payers. Use 2d.p as the lowest precision which must sum up to the total amount. Randomize the people that pays more/less
-      - [ ] User can override by keying in a custom amount
-    - [ ] Split Share Logic: Default to simple "Equal Split" between all members. se 2d.p as the lowest precision which must sum up to the total amount. Randomize the people that pays more/less
-      - [ ] User can override by keying in a custom amount
-    - [ ] Mutation: Call `addExpense`.
-- [ ] **Add Repayment Form:**
-    - [ ] Inputs: Amount, Currency, Debtor (Who paid), Creditor (Who got paid).
-    - [ ] Mutation: Call `addRepayment`.
+    - [ ] Display list (API returns pre-sorted DESC).
+    - [ ] **Visuals:** Distinct styles for General Expenses vs. Settlements.
+    - [ ] **Context:** Show "you lent" / "you borrowed" per item.
+    - [ ] **Interactions:**
+        - [ ] Click item -> Open Detail/Edit Modal.
+        - [ ] Delete button (with confirmation).
+- [ ] **Add/Edit Expense Modal:**
+    - [ ] **Form Fields:**
+        - [ ] **Amount:** Autofocus on open. **Important:** Send as `string` type to API.
+        - [ ] **Date/Time:** Separate inputs. Default time to 00:00. Convert to UTC for API.
+    - [ ] **Split Logic:**
+        - [ ] **Quick Action:** Buttons next to each member to "Allocate Full Amount" (One-click set to 100%).
+        - [ ] Default: Equal split.
+        - [ ] Validation: Show specific "hint" (e.g., "Over by $0.05") if totals don't match.
+        - [ ] "Split Equally" button to auto-fix.
+    - [ ] **Edit Workflow:**
+        - [ ] Open in **Read-Only** mode (Details View).
+        - [ ] "Edit" button enables inputs.
+        - [ ] Use `editExpense` mutation on save.
+- [ ] **Settlement (Repayment):**
+    - [ ] Modal for `addRepayment`.
+    - [ ] Inputs: Amount, Currency, Date/Time, Debtor, Creditor.
 
 ## Backlog
-- [ ] Offline functionality using IndexedDB
-- [ ] Edit Expenses
+- [ ] **Offline Mode:** Sync queue for mutations when offline.
+- [ ] **Delete Group:** Backend support needed.
+- [ ] **Expense Description:** Schema update needed for "Name/Description".
 
-## Completed
-- [x] Initial Project Setup
-- [x] **Routing & Guards:**
-  - [x] Redirect `/` to `/dashboard`.
-  - [x] Implement client-side Auth Guard: Redirect to `/login` if not authenticated (except for `/register`).
-  - [x] Redirect to `/dashboard` if already authenticated and trying to access `/login` or `/register`.
-- [x] **Auth Storage:**
-  - [x] Implement a Svelte store (`auth`) that persists the JWT to `localStorage`.
-  - [x] Provide `login`, `logout`, and `register` methods.
-- [x] **GraphQL API Client:**
-  - [x] Create a lightweight fetch wrapper for `http://localhost:8080/query`.
-  - [x] Auto-inject `Authorization: Bearer <token>` header if token exists.
-  - [x] Global `401 Unauthorized` handling: Clear store and redirect to `/login`.
-  - [x] Standardized error handling: Capture and return GraphQL `errors` array messages.
-- [x] **Pages:**
-  - [x] `login`: Email/Password form.
-  - [x] `register`: Username/Email/Password form with FE validation and inline errors.
-  - [x] `dashboard`: Placeholder page accessible only when logged in.
-- [x] **UI/UX:**
-  - [x] Implement inline error message for FE validation errors.
-  - [x] Implement a simple global error notification system (transient toast).
+## Completed System Foundation
+- [x] **Project Scaffolding:** SvelteKit + TypeScript.
+- [x] **Authentication:** 
+    - [x] JWT in `localStorage` via `auth` store.
+    - [x] Login/Register pages & Auth Guards.
+- [x] **Network Layer:** 
+    - [x] GraphQL wrapper (`fetch`) with error/401 handling.
+- [x] **UI Components:** 
+    - [x] Toast Notification System.
