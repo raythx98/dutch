@@ -166,7 +166,11 @@
 
 	function openEditExpense(expense: Expense) {
 		editingExpense = expense;
-		showAddExpense = true;
+		if (expense.type === 'Repayment') {
+			showAddRepayment = true;
+		} else {
+			showAddExpense = true;
+		}
 	}
 
 	onMount(fetchData);
@@ -359,8 +363,9 @@
 		<AddRepaymentModal 
 			groupId={groupId} 
 			members={group.members} 
-			onClose={() => showAddRepayment = false} 
-			onSuccess={() => { showAddRepayment = false; fetchData(); }} 
+			expense={editingExpense}
+			onClose={() => { showAddRepayment = false; editingExpense = undefined; }} 
+			onSuccess={() => { showAddRepayment = false; editingExpense = undefined; fetchData(); }} 
 		/>
 	{/if}
 </div>

@@ -5,6 +5,45 @@ Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB 
 
 ## Active Implementation Phases
 
+### Phase 5: Group Lifecycle & Invitations
+- [ ] **Enhanced Delete Group:**
+    - **UI:** A danger-themed button in the Group Details header.
+    - **Confirmation Modal:** Before deleting, show a list of current members (sneak peek) and a warning that this action is permanent and affects everyone.
+    - **Logic:** Calls `deleteGroup` mutation and redirects to Dashboard.
+- [ ] **Invite Link & Seamless Join:**
+    - **Generation:** "Share" button in Group Details header opens a modal showing the `inviteToken`.
+    - **Link:** Generate an absolute URL (`origin + /join/[inviteCode]`) with a "Copy to Clipboard" button.
+    - **Join Logic (`/join/[inviteCode]`):**
+        - **If Unauthenticated:** Save `inviteCode` to `localStorage` and redirect to `/login`.
+        - **If Authenticated:**
+            - Call `previewGroup(inviteCode)` to show confirmation: "Join **[Group Name]**? Members: [Alice, Bob, ...]".
+            - Clicking "Join" calls `joinGroup` mutation.
+            - Redirect to group and show success toast on completion.
+    - **Post-Auth Workflow:** After Login/Register, if `inviteCode` exists in `localStorage`, auto-redirect to `/join/[inviteCode]`.
+
+### Phase 6: Expense & Currency Polish
+- [ ] **Expense Metadata:**
+    - Update `AddExpenseModal` and `AddRepaymentModal`:
+        - **Name (Compulsory):** Text input.
+        - **Description (Optional):** Textarea.
+    - **Repayment Logic:** Default `name` to "Repayment" but allow overwrite.
+- [ ] **Currency Ordering:**
+    - Trust Backend order for the `currencies` query.
+    - **Refresh Trigger:** Sync `currencyStore` from API after any successful expense mutation to update "frequently used" order.
+
+## Backlog
+- [ ] **Offline Mode:** Sync queue for mutations when offline.
+
+
+## Completed System Foundation
+- [x] **Project Scaffolding:** SvelteKit + TypeScript.
+- [x] **Authentication:** 
+    - [x] JWT in `localStorage` via `auth` store.
+    - [x] Login/Register pages & Auth Guards.
+- [x] **Network Layer:** 
+    - [x] GraphQL wrapper (`fetch`) with error/401 handling.
+- [x] **UI Components:** 
+    - [x] Toast Notification System.
 ### Phase 1: Core Data & Settings
 - [x] **Currencies & IndexedDB:**
     - [x] Install `idb` library.
@@ -34,7 +73,7 @@ Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB 
     - [x] Navigation: Tabs for "Expenses" and "Members".
 - [x] **Member Management:**
     - [x] Action: "Add Member" button opening a Modal.
-    - [x] Logic: `addMember` mutation with email input.
+    - [x] Logic: `addMember` mutation with identifier (email/username) input.
     - [x] List: Show names, labeling the current user as "**You**".
 
 ### Phase 4: Expense Management (UX Focused)
@@ -61,20 +100,3 @@ Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB 
 - [x] **Repayment:**
     - [x] Modal for `addRepayment`.
     - [x] Inputs: Amount, Currency, Date/Time, Debtor, Creditor.
-
-## Backlog
-- [ ] **Offline Mode:** Sync queue for mutations when offline.
-- [ ] **Delete Group:** Backend support needed.
-- [ ] **Expense Description:** Schema update needed for "Name/Description".
-- [ ] **Invite Link:**
-- [ ] **List of Currency:** Should push frequently used ones to the top
-
-## Completed System Foundation
-- [x] **Project Scaffolding:** SvelteKit + TypeScript.
-- [x] **Authentication:** 
-    - [x] JWT in `localStorage` via `auth` store.
-    - [x] Login/Register pages & Auth Guards.
-- [x] **Network Layer:** 
-    - [x] GraphQL wrapper (`fetch`) with error/401 handling.
-- [x] **UI Components:** 
-    - [x] Toast Notification System.

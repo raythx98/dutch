@@ -190,6 +190,7 @@
 		const expenseAtVal = localDateTime.toISOString();
 
 		const input = {
+			type: 'Generic',
 			amount: totalAmount.toFixed(2),
 			currencyId,
 			expenseAt: expenseAtVal,
@@ -244,7 +245,7 @@
 					<div class="input-with-currency">
 						<select bind:value={currencyId} disabled={isViewOnly}>
 							{#each $currencyStore as curr}
-								<option value={curr.id}>{curr.symbol}{curr.code}</option>
+								<option value={curr.id}>{curr.code} ({curr.symbol})</option>
 							{/each}
 						</select>
 						<input 

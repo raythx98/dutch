@@ -5,9 +5,12 @@
 	import { auth } from '$lib/auth';
 	import { onMount } from 'svelte';
 
-	let { groupId, members, onClose, onSuccess } = $props();
+	let { groupId, members, expense, onClose, onSuccess } = $props();
 
-	let amount = $state<string>('');
+	let isEditing = !!expense;
+	let isViewOnly = $state(!!expense);
+
+	let amount = $state<string>(expense ? expense.amount : '');
 	let currencyId = $state<string>('');
 	
 	function getLocalDate(date: Date) {
@@ -16,8 +19,15 @@
 		return localDate.toISOString().slice(0, 10);
 	}
 
-	let expenseDate = $state<string>(getLocalDate(new Date()));
-	let expenseTime = $state<string>('00:00');
+	function getLocalTime(date: Date) {
+		const h = String(date.getHours()).padStart(2, '0');
+		const m = String(date.getMinutes()).padStart(2, '0');
+		return `${h}:${m}`;
+	}
+
+	let initialDate = expense ? new Date(expense.expenseAt) : new Date();
+	let expenseDate = $state<string>(getLocalDate(initialDate));
+	let expenseTime = $state<string>(expense ? getLocalTime(initialDate) : '00:00');
 	
 	let debtorId = $state<string>('');
 	let creditorId = $state<string>('');
@@ -25,9 +35,12 @@
 	let amountInput: HTMLInputElement;
 
 	$effect(() => {
-		if (members.length > 0) {
-			if (!debtorId) debtorId = $auth.user?.id || members[0].id;
-			if (!creditorId) {
+		if (members.length > 0 && !debtorId) {
+			if (expense) {
+				debtorId = expense.payers[0]?.user.id;
+				creditorId = expense.shares[0]?.user.id;
+			} else {
+				debtorId = $auth.user?.id || members[0].id;
 				const firstNonMe = members.find((m: any) => m.id !== $auth.user?.id);
 				creditorId = firstNonMe ? firstNonMe.id : members[0].id;
 			}
@@ -36,16 +49,23 @@
 
 	$effect(() => {
 		if ($currencyStore.length > 0 && !currencyId) {
-			currencyId = $currencyStore[0].id;
+			if (expense) {
+				const found = $currencyStore.find(c => c.code === expense.currency.code);
+				if (found) currencyId = found.id;
+			} else {
+				currencyId = $currencyStore[0].id;
+			}
 		}
 	});
 
 	onMount(() => {
-		if (amountInput) amountInput.focus();
+		if (amountInput && !isViewOnly) amountInput.focus();
 	});
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+		if (isViewOnly) return;
+
 		const totalAmount = parseFloat(amount);
 		if (isNaN(totalAmount) || totalAmount <= 0) {
 			toast.error('Please enter a valid amount');
@@ -63,24 +83,43 @@
 		const localDateTime = new Date(`${expenseDate}T${expenseTime}:00`);
 		const expenseAt = localDateTime.toISOString();
 
-		const input = {
-			amount: totalAmount.toFixed(2),
-			currencyId,
-			expenseAt,
-			debtor: debtorId,
-			creditor: creditorId
-		};
-
-		const data = await query(`
-			mutation AddRepayment($groupId: ID!, $input: RepaymentInput!) {
-				addRepayment(groupId: $groupId, input: $input) {
-					id
+		let data;
+		if (isEditing) {
+			const input = {
+				type: 'Repayment',
+				amount: totalAmount.toFixed(2),
+				currencyId,
+				expenseAt,
+				payers: [{ userId: debtorId, amount: totalAmount.toFixed(2) }],
+				shares: [{ userId: creditorId, amount: totalAmount.toFixed(2) }]
+			};
+			data = await query(`
+				mutation EditExpense($id: ID!, $input: ExpenseInput!) {
+					editExpense(expenseId: $id, input: $input) {
+						id
+					}
 				}
-			}
-		`, { groupId, input });
+			`, { id: expense.id, input });
+		} else {
+			const input = {
+				type: 'Repayment',
+				amount: totalAmount.toFixed(2),
+				currencyId,
+				expenseAt,
+				debtor: debtorId,
+				creditor: creditorId
+			};
+			data = await query(`
+				mutation AddRepayment($groupId: ID!, $input: RepaymentInput!) {
+					addRepayment(groupId: $groupId, input: $input) {
+						id
+					}
+				}
+			`, { groupId, input });
+		}
 
 		if (data) {
-			toast.success('Repayment recorded');
+			toast.success(isEditing ? 'Repayment updated' : 'Repayment recorded');
 			onSuccess();
 		}
 		loading = false;
@@ -90,7 +129,7 @@
 <div class="modal-backdrop" onclick={onClose} aria-hidden="true">
 	<div class="modal-content" onclick={e => e.stopPropagation()} aria-hidden="true">
 		<header>
-			<h2>Record Repayment</h2>
+			<h2>{isEditing ? (isViewOnly ? 'Repayment Details' : 'Edit Repayment') : 'Record Repayment'}</h2>
 			<button class="close-btn" onclick={onClose}>&times;</button>
 		</header>
 
@@ -98,9 +137,9 @@
 			<div class="form-group">
 				<label for="amount">Amount</label>
 				<div class="input-with-currency">
-					<select bind:value={currencyId}>
+					<select bind:value={currencyId} disabled={isViewOnly}>
 						{#each $currencyStore as curr}
-							<option value={curr.id}>{curr.symbol}{curr.code}</option>
+							<option value={curr.id}>{curr.code} ({curr.symbol})</option>
 						{/each}
 					</select>
 					<input 
@@ -111,6 +150,7 @@
 						bind:value={amount} 
 						placeholder="0.00" 
 						required 
+						disabled={isViewOnly}
 					/>
 				</div>
 			</div>
@@ -118,17 +158,17 @@
 			<div class="form-row compact-row">
 				<div class="form-group">
 					<label for="date">Date</label>
-					<input type="date" id="date" bind:value={expenseDate} required />
+					<input type="date" id="date" bind:value={expenseDate} required disabled={isViewOnly} />
 				</div>
 				<div class="form-group">
 					<label for="time">Time</label>
-					<input type="time" id="time" bind:value={expenseTime} required />
+					<input type="time" id="time" bind:value={expenseTime} required disabled={isViewOnly} />
 				</div>
 			</div>
 
 			<div class="form-group large-select">
 				<label for="debtor">Who paid?</label>
-				<select id="debtor" bind:value={debtorId} required>
+				<select id="debtor" bind:value={debtorId} required disabled={isViewOnly}>
 					{#each members as member}
 						<option value={member.id}>
 							{member.name} {member.id === $auth.user?.id ? '(Me)' : ''}
@@ -139,7 +179,7 @@
 
 			<div class="form-group large-select">
 				<label for="creditor">To whom?</label>
-				<select id="creditor" bind:value={creditorId} required>
+				<select id="creditor" bind:value={creditorId} required disabled={isViewOnly}>
 					{#each members as member}
 						<option value={member.id}>
 							{member.name} {member.id === $auth.user?.id ? '(Me)' : ''}
@@ -150,9 +190,13 @@
 
 			<div class="modal-actions">
 				<button type="button" class="btn btn-secondary" onclick={onClose}>Cancel</button>
-				<button type="submit" class="btn btn-primary" disabled={loading}>
-					{loading ? 'Recording...' : 'Record Repayment'}
-				</button>
+				{#if isViewOnly}
+					<button type="button" class="btn btn-primary" onclick={() => isViewOnly = false}>Edit</button>
+				{:else}
+					<button type="submit" class="btn btn-primary" disabled={loading}>
+						{loading ? 'Saving...' : (isEditing ? 'Update Repayment' : 'Record Repayment')}
+					</button>
+				{/if}
 			</div>
 		</form>
 	</div>
@@ -239,12 +283,7 @@
 		overflow: hidden;
 	}
 
-	.input-with-currency select {
-		border: none;
-		background: #f3f4f6;
-		padding: 0.5rem;
-		border-right: 1px solid #d1d5db;
-	}
+	.input-with-currency select:disabled { background: #f9fafb; color: #6b7280; }
 
 	.input-with-currency input {
 		border: none;
@@ -253,10 +292,17 @@
 		width: 100%;
 	}
 
+	.input-with-currency input:disabled { background: #f9fafb; color: #111827; }
+
 	input[type="date"], input[type="time"], select {
 		padding: 0.5rem;
 		border: 1px solid #d1d5db;
 		border-radius: 4px;
+	}
+
+	input[type="date"]:disabled, input[type="time"]:disabled, select:disabled {
+		background: #f9fafb;
+		color: #111827;
 	}
 
 	.modal-actions {
