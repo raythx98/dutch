@@ -32,7 +32,10 @@ function createAuthStore() {
 			set(state);
 		},
 		logout: () => {
-			if (browser) localStorage.removeItem(STORAGE_KEY);
+			if (browser) {
+				localStorage.removeItem(STORAGE_KEY);
+				import('./currency').then(({ clearCurrencies }) => clearCurrencies());
+			}
 			set({ token: null, user: null });
 		}
 	};

@@ -2,6 +2,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import Toast from '$lib/components/Toast.svelte';
 	import { auth } from '$lib/auth';
+	import { loadCurrenciesFromDB } from '$lib/currency';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
@@ -17,8 +18,11 @@
 
 			if (!$auth.token && !publicPages.includes(path)) {
 				goto('/login');
-			} else if ($auth.token && (path === '/login' || path === '/register' || path === '/')) {
-				goto('/dashboard');
+			} else if ($auth.token) {
+				loadCurrenciesFromDB();
+				if (path === '/login' || path === '/register' || path === '/') {
+					goto('/dashboard');
+				}
 			} else if (path === '/') {
 				goto('/dashboard');
 			}

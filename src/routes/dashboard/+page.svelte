@@ -2,41 +2,245 @@
 	import { auth } from '$lib/auth';
 	import { toast } from '$lib/toast';
 	import { goto } from '$app/navigation';
+	import { query } from '$lib/api';
+	import { onMount } from 'svelte';
+
+	interface Group {
+		id: string;
+		name: string;
+	}
+
+	interface Balance {
+		groupName: string;
+		amount: string;
+		currency: { symbol: string; code: string };
+	}
+
+	let groups = $state<Group[]>([]);
+	let loading = $state(true);
+	let showCreateModal = $state(false);
+	let newGroupName = $state('');
+	let creating = $state(false);
+
+	let totalOwed = $state<Balance[]>([]);
+	let totalOwes = $state<Balance[]>([]);
+
+	async function fetchGroupsAndBalances() {
+		loading = true;
+		const data = await query<{ groups: Group[] }>(`
+			query GetGroups {
+				groups {
+					id
+					name
+				}
+			}
+		`);
+
+		if (data) {
+			groups = data.groups;
+			
+			// Fetch balances for each group
+			const balancesPromises = groups.map(group => 
+				query<{ expenses: { owes: any[], owed: any[] } }>(`
+					query GetGroupBalances($groupId: ID!) {
+						expenses(groupId: $groupId) {
+							owes {
+								amount
+								currency { symbol code }
+							}
+							owed {
+								amount
+								currency { symbol code }
+							}
+						}
+					}
+				`, { groupId: group.id }).then(res => ({ groupName: group.name, res }))
+			);
+
+			const results = await Promise.all(balancesPromises);
+			
+			const owedList: Balance[] = [];
+			const owesList: Balance[] = [];
+
+			results.forEach(({ groupName, res }) => {
+				if (res?.expenses) {
+					// Aggregate per group and currency
+					const groupOwed = new Map<string, { amount: number, symbol: string }>();
+					const groupOwes = new Map<string, { amount: number, symbol: string }>();
+
+					res.expenses.owed.forEach(item => {
+						const key = item.currency.code;
+						const current = groupOwed.get(key) || { amount: 0, symbol: item.currency.symbol };
+						groupOwed.set(key, { ...current, amount: current.amount + parseFloat(item.amount) });
+					});
+
+					res.expenses.owes.forEach(item => {
+						const key = item.currency.code;
+						const current = groupOwes.get(key) || { amount: 0, symbol: item.currency.symbol };
+						groupOwes.set(key, { ...current, amount: current.amount + parseFloat(item.amount) });
+					});
+
+					groupOwed.forEach((val, code) => {
+						if (val.amount > 0) {
+							owedList.push({
+								groupName,
+								amount: val.amount.toFixed(2),
+								currency: { code, symbol: val.symbol }
+							});
+						}
+					});
+
+					groupOwes.forEach((val, code) => {
+						if (val.amount > 0) {
+							owesList.push({
+								groupName,
+								amount: val.amount.toFixed(2),
+								currency: { code, symbol: val.symbol }
+							});
+						}
+					});
+				}
+			});
+
+			totalOwed = owedList;
+			totalOwes = owesList;
+		}
+		loading = false;
+	}
+
+	async function handleCreateGroup(e: Event) {
+		e.preventDefault();
+		if (!newGroupName.trim()) return;
+
+		creating = true;
+		const data = await query<{ addGroup: Group }>(
+			`
+			mutation AddGroup($name: String!) {
+				addGroup(name: $name) {
+					id
+					name
+				}
+			}
+		`,
+			{ name: newGroupName }
+		);
+
+		if (data) {
+			toast.success(`Group "${data.addGroup.name}" created!`);
+			newGroupName = '';
+			showCreateModal = false;
+			await fetchGroupsAndBalances();
+		}
+		creating = false;
+	}
 
 	function logout() {
 		auth.logout();
 		toast.info('Logged out successfully');
 		goto('/login');
 	}
+
+	onMount(() => {
+		fetchGroupsAndBalances();
+	});
 </script>
 
 <div class="dashboard">
 	<header>
-		<h1>Dutch Dashboard</h1>
+		<div class="logo">Dutch<span>.</span></div>
 		<div class="user-info">
-			<span>Logged in as: <strong>{$auth.user?.name}</strong></span>
-			<button onclick={logout}>Logout</button>
+			<span class="welcome-text">Hi, <strong>{$auth.user?.name}</strong></span>
+			<button class="btn btn-secondary" onclick={() => goto('/settings')}>Settings</button>
+			<button class="btn btn-secondary" onclick={logout}>Logout</button>
 		</div>
 	</header>
 
 	<main>
-		<p>Welcome to your Dutch dashboard. This is a placeholder for your groups and expenses.</p>
-
 		<div class="stats-grid">
 			<div class="card">
-				<h3>Total Balance</h3>
-				<p class="amount">$0.00</p>
-			</div>
-			<div class="card">
 				<h3>You are owed</h3>
-				<p class="amount positive">$0.00</p>
+				{#if totalOwed.length === 0}
+					<p class="amount positive">$0.00</p>
+				{:else}
+					{#each totalOwed as balance}
+						<div class="balance-item">
+							<span class="group-label">{balance.groupName}</span>
+							<span class="amount positive">
+								{balance.currency.symbol}{balance.amount} {balance.currency.code}
+							</span>
+						</div>
+					{/each}
+				{/if}
 			</div>
 			<div class="card">
 				<h3>You owe</h3>
-				<p class="amount negative">$0.00</p>
+				{#if totalOwes.length === 0}
+					<p class="amount negative">$0.00</p>
+				{:else}
+					{#each totalOwes as balance}
+						<div class="balance-item">
+							<span class="group-label">{balance.groupName}</span>
+							<span class="amount negative">
+								{balance.currency.symbol}{balance.amount} {balance.currency.code}
+							</span>
+						</div>
+					{/each}
+				{/if}
 			</div>
 		</div>
+
+		<section class="groups-section">
+			<div class="section-header">
+				<h2>Your Groups</h2>
+				<button class="btn btn-primary" onclick={() => showCreateModal = true}>Create Group</button>
+			</div>
+
+			{#if loading}
+				<p>Loading groups...</p>
+			{:else if groups.length === 0}
+				<div class="empty-state">
+					<p>You don't have any groups yet.</p>
+					<p>Create one to start splitting expenses!</p>
+				</div>
+			{:else}
+				<div class="groups-grid">
+					{#each groups as group}
+						<button class="group-card" onclick={() => goto(`/groups/${group.id}`)}>
+							<span class="group-name">{group.name}</span>
+							<span class="chevron">&rarr;</span>
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</section>
 	</main>
+
+	{#if showCreateModal}
+		<div class="modal-backdrop" onclick={() => showCreateModal = false} aria-hidden="true">
+			<div class="modal-content" onclick={e => e.stopPropagation()} aria-hidden="true">
+				<h3>Create New Group</h3>
+				<form onsubmit={handleCreateGroup}>
+					<div class="form-group">
+						<label for="groupName">Group Name</label>
+						<input 
+							type="text" 
+							id="groupName" 
+							bind:value={newGroupName} 
+							placeholder="e.g. Summer Trip 2025" 
+							required 
+							disabled={creating}
+						/>
+					</div>
+					<div class="modal-actions">
+						<button type="button" class="btn btn-secondary" onclick={() => showCreateModal = false}>Cancel</button>
+						<button type="submit" class="btn btn-primary" disabled={creating || !newGroupName.trim()}>
+							{creating ? 'Creating...' : 'Create Group'}
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -51,39 +255,27 @@
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 2rem;
-		padding-bottom: 1rem;
+		padding-bottom: 1.5rem;
 		border-bottom: 1px solid #e5e7eb;
-	}
-
-	h1 {
-		margin: 0;
-		font-size: 1.5rem;
 	}
 
 	.user-info {
 		display: flex;
 		align-items: center;
-		gap: 1rem;
+		gap: 0.75rem;
 	}
 
-	button {
-		padding: 0.5rem 1rem;
-		background: white;
-		border: 1px solid #d1d5db;
-		border-radius: 4px;
-		cursor: pointer;
-		font-weight: 500;
-	}
-
-	button:hover {
-		background: #f9fafb;
+	.welcome-text {
+		margin-right: 0.5rem;
+		color: #4b5563;
+		font-size: 1.1rem;
 	}
 
 	.stats-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 		gap: 1.5rem;
-		margin-top: 2rem;
+		margin-bottom: 3rem;
 	}
 
 	.card {
@@ -91,6 +283,7 @@
 		padding: 1.5rem;
 		border-radius: 8px;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		border: 1px solid #e5e7eb;
 	}
 
 	.card h3 {
@@ -102,9 +295,26 @@
 	}
 
 	.amount {
-		font-size: 1.5rem;
+		font-size: 1.25rem;
 		font-weight: 700;
 		margin: 0;
+	}
+
+	.balance-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.5rem 0;
+		border-bottom: 1px solid #f3f4f6;
+	}
+
+	.balance-item:last-child {
+		border-bottom: none;
+	}
+
+	.group-label {
+		color: #6b7280;
+		font-weight: 500;
 	}
 
 	.positive {
@@ -113,5 +323,123 @@
 
 	.negative {
 		color: #dc2626;
+	}
+
+	.groups-section {
+		margin-top: 2rem;
+	}
+
+	.section-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 1.5rem;
+	}
+
+	.section-header h2 {
+		margin: 0;
+		font-size: 1.25rem;
+	}
+
+	.groups-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		gap: 1rem;
+	}
+
+	.group-card {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1.5rem;
+		background: white;
+		border: 1px solid #e5e7eb;
+		border-radius: 8px;
+		text-align: left;
+		width: 100%;
+		transition: border-color 0.2s, box-shadow 0.2s;
+	}
+
+	.group-card:hover {
+		border-color: #2563eb;
+		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+		background: white;
+	}
+
+	.group-name {
+		font-weight: 600;
+		font-size: 1.1rem;
+		color: #111827;
+	}
+
+	.chevron {
+		color: #9ca3af;
+		font-size: 1.2rem;
+	}
+
+	.empty-state {
+		text-align: center;
+		padding: 3rem;
+		background: #f9fafb;
+		border-radius: 8px;
+		border: 2px dashed #e5e7eb;
+		color: #6b7280;
+	}
+
+	.empty-state p {
+		margin: 0.5rem 0;
+	}
+
+	/* Modal Styles */
+	.modal-backdrop {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 1000;
+	}
+
+	.modal-content {
+		background: white;
+		padding: 2rem;
+		border-radius: 8px;
+		width: 100%;
+		max-width: 400px;
+		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+	}
+
+	.modal-content h3 {
+		margin-top: 0;
+		margin-bottom: 1.5rem;
+	}
+
+	.form-group {
+		margin-bottom: 1.5rem;
+	}
+
+	.form-group label {
+		display: block;
+		margin-bottom: 0.5rem;
+		font-weight: 500;
+		color: #374151;
+	}
+
+	.form-group input {
+		width: 100%;
+		padding: 0.5rem;
+		border: 1px solid #d1d5db;
+		border-radius: 4px;
+		box-sizing: border-box;
+	}
+
+	.modal-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 1rem;
 	}
 </style>
