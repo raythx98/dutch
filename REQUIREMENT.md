@@ -5,32 +5,6 @@ Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB 
 
 ## Active Implementation Phases
 
-### Phase 5: Group Lifecycle & Invitations
-- [ ] **Enhanced Delete Group:**
-    - **UI:** A danger-themed button in the Group Details header.
-    - **Confirmation Modal:** Before deleting, show a list of current members (sneak peek) and a warning that this action is permanent and affects everyone.
-    - **Logic:** Calls `deleteGroup` mutation and redirects to Dashboard.
-- [ ] **Invite Link & Seamless Join:**
-    - **Generation:** "Share" button in Group Details header opens a modal showing the `inviteToken`.
-    - **Link:** Generate an absolute URL (`origin + /join/[inviteCode]`) with a "Copy to Clipboard" button.
-    - **Join Logic (`/join/[inviteCode]`):**
-        - **If Unauthenticated:** Save `inviteCode` to `localStorage` and redirect to `/login`.
-        - **If Authenticated:**
-            - Call `previewGroup(inviteCode)` to show confirmation: "Join **[Group Name]**? Members: [Alice, Bob, ...]".
-            - Clicking "Join" calls `joinGroup` mutation.
-            - Redirect to group and show success toast on completion.
-    - **Post-Auth Workflow:** After Login/Register, if `inviteCode` exists in `localStorage`, auto-redirect to `/join/[inviteCode]`.
-
-### Phase 6: Expense & Currency Polish
-- [ ] **Expense Metadata:**
-    - Update `AddExpenseModal` and `AddRepaymentModal`:
-        - **Name (Compulsory):** Text input.
-        - **Description (Optional):** Textarea.
-    - **Repayment Logic:** Default `name` to "Repayment" but allow overwrite.
-- [ ] **Currency Ordering:**
-    - Trust Backend order for the `currencies` query.
-    - **Refresh Trigger:** Sync `currencyStore` from API after any successful expense mutation to update "frequently used" order.
-
 ## Backlog
 - [ ] **Offline Mode:** Sync queue for mutations when offline.
 
@@ -100,3 +74,30 @@ Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB 
 - [x] **Repayment:**
     - [x] Modal for `addRepayment`.
     - [x] Inputs: Amount, Currency, Date/Time, Debtor, Creditor.
+
+### Phase 5: Group Lifecycle & Invitations
+- [x] **Enhanced Delete Group:**
+    - [x] **UI:** Danger-themed button (Trash Icon) in Group Details header.
+    - [x] **Confirmation Modal:** Lists current members with tag style, warns about permanent action.
+    - [x] **Logic:** Calls `deleteGroup` mutation and redirects to Dashboard.
+- [x] **Invite Link & Seamless Join:**
+    - [x] **Generation:** "Share" button in Group Details header opens a modal showing the `inviteToken` and copy link/code options.
+    - [x] **Link:** Generated absolute URL (`origin + /join/[inviteCode]`).
+    - [x] **Join Logic (`/join/[inviteCode]`):**
+        - [x] **If Unauthenticated:** Save `inviteCode` to `localStorage` and redirect to `/login`.
+        - [x] **If Authenticated:**
+            - Call `previewGroup(inviteCode)` to show confirmation with member tags.
+            - Clicking "Join" calls `joinGroup` mutation.
+            - Redirect to group and show success toast on completion.
+    - [x] **Post-Auth Workflow:** Auto-redirects to `/join/[inviteCode]` after Login/Register if pending invite exists.
+    - [x] **Dashboard:** Added "Join Group" button to manually enter code.
+
+### Phase 6: Expense & Currency Polish
+- [x] **Expense Metadata:**
+    - [x] Updated `AddExpenseModal` and `AddRepaymentModal`:
+        - [x] **Name (Compulsory):** Text input.
+        - [x] **Description (Optional):** Textarea.
+    - [x] **Repayment Logic:** Defaults `name` to "Repayment".
+- [x] **Currency Ordering:**
+    - [x] Trusts Backend order for the `currencies` query.
+    - [x] **Refresh Trigger:** Syncs `currencyStore` from API after any successful expense mutation.

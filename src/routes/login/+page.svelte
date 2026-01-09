@@ -38,7 +38,14 @@
 		if (data?.login) {
 			auth.login(data.login.token, { id: data.login.id, name: data.login.name });
 			toast.success(`Welcome back, ${data.login.name}!`);
-			goto('/dashboard');
+			
+			const pendingInvite = localStorage.getItem('pendingInvite');
+			if (pendingInvite) {
+				localStorage.removeItem('pendingInvite');
+				goto(`/join/${pendingInvite}`);
+			} else {
+				goto('/dashboard');
+			}
 		}
 	}
 </script>

@@ -8,6 +8,8 @@
 	import AddMemberModal from '$lib/components/AddMemberModal.svelte';
 	import AddExpenseModal from '$lib/components/AddExpenseModal.svelte';
 	import AddRepaymentModal from '$lib/components/AddRepaymentModal.svelte';
+	import DeleteGroupModal from '$lib/components/DeleteGroupModal.svelte';
+	import InviteModal from '$lib/components/InviteModal.svelte';
 
 	const groupId = $page.params.id;
 
@@ -19,6 +21,7 @@
 	interface Group {
 		id: string;
 		name: string;
+		inviteToken: string;
 		members: User[];
 	}
 
@@ -36,6 +39,8 @@
 	interface Expense {
 		id: string;
 		type: string;
+		name: string;
+		description: string;
 		amount: string;
 		expenseAt: string;
 		currency: Currency;
@@ -62,6 +67,8 @@
 	let showAddMember = $state(false);
 	let showAddExpense = $state(false);
 	let showAddRepayment = $state(false);
+	let showDeleteGroup = $state(false);
+	let showInvite = $state(false);
 	let editingExpense = $state<Expense | undefined>(undefined);
 
 	async function fetchData() {
@@ -72,6 +79,7 @@
 				groups {
 					id
 					name
+					inviteToken
 					members {
 						id
 						name
@@ -96,6 +104,8 @@
 					expenses {
 						id
 						type
+						name
+						description
 						amount
 						expenseAt
 						currency { id code symbol }
@@ -185,7 +195,15 @@
 			</button>
 			{#if group}
 				<h1>{group.name}</h1>
-				<button class="btn btn-primary add-member-top" onclick={() => showAddMember = true}>Add Member</button>
+				<div class="header-actions">
+					<button class="btn btn-secondary btn-icon" onclick={() => showInvite = true} title="Share Group">
+						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+					</button>
+					<button class="btn btn-danger-outline btn-icon" onclick={() => showDeleteGroup = true} title="Delete Group">
+						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+					</button>
+					<button class="btn btn-primary add-member-top" onclick={() => showAddMember = true}>Add Member</button>
+				</div>
 			{:else}
 				<h1>Loading...</h1>
 			{/if}
@@ -281,7 +299,10 @@
 							</div>
 
 							<div class="expense-info">
-								<div class="expense-type">{expense.type}</div>
+								<div class="expense-name">{expense.name || expense.type}</div>
+								{#if expense.description}
+									<div class="expense-desc">{expense.description}</div>
+								{/if}
 								<div class="expense-details">
 									{#if expense.type === 'Repayment'}
 										{@const payer = expense.payers[0]?.user.name === $auth.user?.name ? 'You' : expense.payers[0]?.user.name}
@@ -368,6 +389,20 @@
 			onSuccess={() => { showAddRepayment = false; editingExpense = undefined; fetchData(); }} 
 		/>
 	{/if}
+
+	{#if showDeleteGroup && group}
+		<DeleteGroupModal 
+			group={group}
+			onClose={() => showDeleteGroup = false}
+		/>
+	{/if}
+
+	{#if showInvite && group}
+		<InviteModal 
+			inviteToken={group.inviteToken}
+			onClose={() => showInvite = false}
+		/>
+	{/if}
 </div>
 
 <style>
@@ -395,8 +430,34 @@
 		font-size: 1.25rem;
 	}
 
-	.add-member-top {
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.header-actions .btn {
 		height: 2.25rem;
+		padding: 0 1rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.header-actions .btn-icon {
+		padding: 0;
+		width: 2.25rem;
+	}
+
+	.btn-danger-outline {
+		background: white;
+		border: 1px solid #fee2e2;
+		color: #ef4444;
+	}
+
+	.btn-danger-outline:hover {
+		background: #fef2f2;
+		border-color: #fecaca;
 	}
 
 	.balance-summary {
@@ -562,11 +623,17 @@
 		justify-content: center;
 	}
 
-	.expense-type {
+	.expense-name {
 		font-weight: 600;
 		color: #111827;
 		margin-bottom: 0.125rem;
 		font-size: 0.95rem;
+	}
+
+	.expense-desc {
+		font-size: 0.8125rem;
+		color: #6b7280;
+		margin-bottom: 0.25rem;
 	}
 
 	.expense-details {
@@ -612,10 +679,6 @@
 
 	.generic-item {
 		border-left-color: #d1d5db;
-	}
-
-	.repayment-item .expense-type {
-		color: #166534;
 	}
 
 	.delete-btn {

@@ -19,7 +19,9 @@
 	let groups = $state<Group[]>([]);
 	let loading = $state(true);
 	let showCreateModal = $state(false);
+	let showJoinModal = $state(false);
 	let newGroupName = $state('');
+	let joinCode = $state('');
 	let creating = $state(false);
 
 	let totalOwed = $state<Balance[]>([]);
@@ -134,6 +136,12 @@
 		creating = false;
 	}
 
+	function handleJoinGroup(e: Event) {
+		e.preventDefault();
+		if (!joinCode.trim()) return;
+		goto(`/join/${joinCode}`);
+	}
+
 	function logout() {
 		auth.logout();
 		toast.info('Logged out successfully');
@@ -192,7 +200,10 @@
 		<section class="groups-section">
 			<div class="section-header">
 				<h2>Your Groups</h2>
-				<button class="btn btn-primary" onclick={() => showCreateModal = true}>Create Group</button>
+				<div class="header-actions">
+					<button class="btn btn-secondary" onclick={() => showJoinModal = true}>Join Group</button>
+					<button class="btn btn-primary" onclick={() => showCreateModal = true}>Create Group</button>
+				</div>
 			</div>
 
 			{#if loading}
@@ -235,6 +246,32 @@
 						<button type="button" class="btn btn-secondary" onclick={() => showCreateModal = false}>Cancel</button>
 						<button type="submit" class="btn btn-primary" disabled={creating || !newGroupName.trim()}>
 							{creating ? 'Creating...' : 'Create Group'}
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	{/if}
+
+	{#if showJoinModal}
+		<div class="modal-backdrop" onclick={() => showJoinModal = false} aria-hidden="true">
+			<div class="modal-content" onclick={e => e.stopPropagation()} aria-hidden="true">
+				<h3>Join a Group</h3>
+				<form onsubmit={handleJoinGroup}>
+					<div class="form-group">
+						<label for="joinCode">Invite Code</label>
+						<input 
+							type="text" 
+							id="joinCode" 
+							bind:value={joinCode} 
+							placeholder="Enter code" 
+							required 
+						/>
+					</div>
+					<div class="modal-actions">
+						<button type="button" class="btn btn-secondary" onclick={() => showJoinModal = false}>Cancel</button>
+						<button type="submit" class="btn btn-primary" disabled={!joinCode.trim()}>
+							Join Group
 						</button>
 					</div>
 				</form>
@@ -339,6 +376,11 @@
 	.section-header h2 {
 		margin: 0;
 		font-size: 1.25rem;
+	}
+
+	.header-actions {
+		display: flex;
+		gap: 0.75rem;
 	}
 
 	.groups-grid {

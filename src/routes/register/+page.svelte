@@ -60,7 +60,14 @@
 		if (data?.register) {
 			auth.login(data.register.token, { id: data.register.id, name: data.register.name });
 			toast.success(`Account created! Welcome, ${data.register.name}!`);
-			goto('/dashboard');
+			
+			const pendingInvite = localStorage.getItem('pendingInvite');
+			if (pendingInvite) {
+				localStorage.removeItem('pendingInvite');
+				goto(`/join/${pendingInvite}`);
+			} else {
+				goto('/dashboard');
+			}
 		}
 	}
 </script>

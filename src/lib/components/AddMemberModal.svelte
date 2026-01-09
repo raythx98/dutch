@@ -4,22 +4,22 @@
 
 	let { groupId, onClose, onSuccess } = $props();
 
-	let email = $state('');
+	let identifier = $state('');
 	let loading = $state(false);
-	let emailInput: HTMLInputElement;
+	let inputRef: HTMLInputElement;
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
-		if (!email.trim()) return;
+		if (!identifier.trim()) return;
 
 		loading = true;
 		const data = await query<{ addMember: any }>(`
-			mutation AddMember($groupId: ID!, $email: String!) {
-				addMember(groupId: $groupId, email: $email) {
+			mutation AddMember($groupId: ID!, $identifier: String!) {
+				addMember(groupId: $groupId, identifier: $identifier) {
 					id
 				}
 			}
-		`, { groupId, email });
+		`, { groupId, identifier });
 
 		if (data) {
 			toast.success('Member added successfully');
@@ -29,7 +29,7 @@
 	}
 
 	$effect(() => {
-		if (emailInput) emailInput.focus();
+		if (inputRef) inputRef.focus();
 	});
 </script>
 
@@ -42,13 +42,13 @@
 
 		<form onsubmit={handleSubmit}>
 			<div class="form-group">
-				<label for="email">Member's Email</label>
+				<label for="identifier">Username or Email</label>
 				<input 
-					type="email" 
-					id="email" 
-					bind:this={emailInput}
-					bind:value={email} 
-					placeholder="friend@example.com" 
+					type="text" 
+					id="identifier" 
+					bind:this={inputRef}
+					bind:value={identifier} 
+					placeholder="Enter username or email" 
 					required 
 					disabled={loading}
 				/>
@@ -56,7 +56,7 @@
 
 			<div class="modal-actions">
 				<button type="button" class="btn btn-secondary" onclick={onClose}>Cancel</button>
-				<button type="submit" class="btn btn-primary" disabled={loading || !email.trim()}>
+				<button type="submit" class="btn btn-primary" disabled={loading || !identifier.trim()}>
 					{loading ? 'Adding...' : 'Add Member'}
 				</button>
 			</div>

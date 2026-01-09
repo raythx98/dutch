@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { currencyStore } from '$lib/currency';
+	import { currencyStore, fetchAndSyncCurrencies } from '$lib/currency';
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
@@ -10,6 +10,8 @@
 	let isEditing = !!expense;
 	let isViewOnly = $state(!!expense);
 	
+	let name = $state<string>(expense ? expense.name : '');
+	let description = $state<string>(expense ? expense.description : '');
 	let amount = $state<string>(expense ? expense.amount : '');
 	let currencyId = $state<string>(''); 
 	
@@ -60,7 +62,7 @@
 
 	function getName(member: any) {
 		if (!member) return 'Unknown';
-		return member.id === $auth.user?.id ? 'You' : member.name;
+		return member.name;
 	}
 
 	$effect(() => {
@@ -190,6 +192,8 @@
 		const expenseAtVal = localDateTime.toISOString();
 
 		const input = {
+			name,
+			description,
 			type: 'Generic',
 			amount: totalAmount.toFixed(2),
 			currencyId,
@@ -225,6 +229,7 @@
 
 		if (data) {
 			toast.success(isEditing ? 'Expense updated' : 'Expense added');
+			fetchAndSyncCurrencies(); // Sync to update frequent currencies
 			onSuccess();
 		}
 		loading = false;
@@ -239,6 +244,28 @@
 		</header>
 
 		<form onsubmit={handleSubmit}>
+			<div class="form-group mb-1">
+				<label for="name">Expense Name</label>
+				<input 
+					type="text" 
+					id="name" 
+					bind:value={name} 
+					placeholder="e.g. Dinner, Groceries" 
+					required 
+					disabled={isViewOnly}
+				/>
+			</div>
+
+			<div class="form-group mb-1">
+				<label for="description">Description (Optional)</label>
+				<textarea 
+					id="description" 
+					bind:value={description} 
+					placeholder="Add more details..." 
+					disabled={isViewOnly}
+				></textarea>
+			</div>
+
 			<div class="form-row">
 				<div class="form-group amount-group">
 					<label for="amount">Amount</label>
@@ -404,6 +431,28 @@
 		font-weight: 500;
 		color: #374151;
 	}
+
+	.form-group input[type="text"],
+	.form-group textarea {
+		padding: 0.625rem;
+		border: 1px solid #d1d5db;
+		border-radius: 4px;
+		width: 100%;
+		font-size: 0.95rem;
+	}
+
+	.form-group textarea {
+		resize: vertical;
+		min-height: 80px;
+	}
+
+	.form-group input:disabled,
+	.form-group textarea:disabled {
+		background: #f9fafb;
+		color: #111827;
+	}
+
+	.mb-1 { margin-bottom: 1rem; }
 
 	.input-with-currency {
 		display: flex;
