@@ -168,7 +168,7 @@
 			<div class="card">
 				<h3>You are owed</h3>
 				{#if totalOwed.length === 0}
-					<p class="amount positive">$0.00</p>
+					<p class="empty-msg">Nobody owes you anything.</p>
 				{:else}
 					{#each totalOwed as balance}
 						<div class="balance-item">
@@ -183,7 +183,7 @@
 			<div class="card">
 				<h3>You owe</h3>
 				{#if totalOwes.length === 0}
-					<p class="amount negative">$0.00</p>
+					<p class="empty-msg">You don't owe anything.</p>
 				{:else}
 					{#each totalOwes as balance}
 						<div class="balance-item">
@@ -281,10 +281,17 @@
 </div>
 
 <style>
+	:global(body) {
+		margin: 0;
+		padding: 0;
+	}
+
 	.dashboard {
-		max-width: 1000px;
+		max-width: 800px;
 		margin: 0 auto;
 		padding: 2rem;
+		width: 100%;
+		box-sizing: border-box;
 	}
 
 	header {
@@ -334,6 +341,12 @@
 	.amount {
 		font-size: 1.25rem;
 		font-weight: 700;
+		margin: 0;
+	}
+
+	.empty-msg {
+		color: #9ca3af;
+		font-size: 0.875rem;
 		margin: 0;
 	}
 

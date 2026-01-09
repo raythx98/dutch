@@ -18,9 +18,15 @@
 	let { group, onClose }: { group: Group; onClose: () => void } = $props();
 	let loading = $state(false);
 
+	const sortedMembers = $derived([...group.members].sort((a, b) => {
+		if (a.id === $auth.user?.id) return -1;
+		if (b.id === $auth.user?.id) return 1;
+		return a.name.localeCompare(b.name);
+	}));
+
 	const MAX_VISIBLE_MEMBERS = 10;
-	const visibleMembers = $derived(group.members.slice(0, MAX_VISIBLE_MEMBERS));
-	const remainingCount = $derived(Math.max(0, group.members.length - MAX_VISIBLE_MEMBERS));
+	const visibleMembers = $derived(sortedMembers.slice(0, MAX_VISIBLE_MEMBERS));
+	const remainingCount = $derived(Math.max(0, sortedMembers.length - MAX_VISIBLE_MEMBERS));
 
 	async function handleDelete() {
 		loading = true;
@@ -105,7 +111,7 @@
 	}
 
 	header {
-		padding: 1.25rem;
+		padding: 1rem 1.25rem;
 		border-bottom: 1px solid #e5e7eb;
 		display: flex;
 		justify-content: space-between;
@@ -127,7 +133,7 @@
 	}
 
 	.modal-body {
-		padding: 1.25rem;
+		padding: 1rem 1.25rem 1.25rem;
 	}
 
 	.warning-box {
@@ -138,7 +144,7 @@
 		border: 1px solid #fecaca;
 		padding: 0.75rem;
 		border-radius: 6px;
-		margin-bottom: 1.5rem;
+		margin-bottom: 1.25rem;
 		color: #991b1b;
 		font-size: 0.9rem;
 	}
@@ -155,7 +161,7 @@
 	}
 
 	.members-preview {
-		margin-bottom: 1.5rem;
+		margin-bottom: 1.25rem;
 	}
 
 	.members-preview h3 {
@@ -221,7 +227,7 @@
 	}
 
 	footer {
-		padding: 1.25rem;
+		padding: 1rem 1.25rem;
 		border-top: 1px solid #e5e7eb;
 		display: flex;
 		justify-content: flex-end;

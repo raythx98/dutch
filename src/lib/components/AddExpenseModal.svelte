@@ -1,11 +1,16 @@
 <script lang="ts">
-	import { currencyStore, fetchAndSyncCurrencies } from '$lib/currency';
+	import { currencyStore, fetchAndSyncCurrencies, type Currency } from '$lib/currency';
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
 	import { onMount } from 'svelte';
 
 	let { groupId, members, expense, onClose, onSuccess } = $props();
+
+	interface Member {
+		id: string;
+		name: string;
+	}
 
 	let isEditing = !!expense;
 	let isViewOnly = $state(!!expense);
@@ -34,6 +39,12 @@
 	let loading = $state(false);
 	let amountInput: HTMLInputElement;
 
+	const sortedMembers = $derived([...members].sort((a, b) => {
+		if (a.id === $auth.user?.id) return -1;
+		if (b.id === $auth.user?.id) return 1;
+		return a.name.localeCompare(b.name);
+	}));
+
 	// Payers and Shares state
 	let payers = $state<{ userId: string; amount: string }[]>([]);
 	let shares = $state<{ userId: string; amount: string }[]>([]);
@@ -60,7 +71,7 @@
 		};
 	});
 
-	function getName(member: any) {
+	function getName(member: Member | undefined) {
 		if (!member) return 'Unknown';
 		return member.name;
 	}
@@ -68,7 +79,7 @@
 	$effect(() => {
 		if ($currencyStore.length > 0 && !currencyId) {
 			if (expense) {
-				const found = $currencyStore.find(c => c.code === expense.currency.code);
+				const found = $currencyStore.find((c: Currency) => c.code === expense.currency.code);
 				if (found) currencyId = found.id;
 			} else {
 				currencyId = $currencyStore[0].id;
@@ -77,23 +88,23 @@
 	});
 
 	$effect(() => {
-		if (members.length > 0 && payers.length === 0) {
+		if (sortedMembers.length > 0 && payers.length === 0) {
 			if (expense) {
-				payers = members.map((m: any) => {
+				payers = sortedMembers.map((m: Member) => {
 					const existing = expense.payers.find((p: any) => p.user.id === m.id); 
 					return { userId: m.id, amount: existing ? parseFloat(existing.amount).toFixed(2) : '0.00' };
 				});
-				shares = members.map((m: any) => {
+				shares = sortedMembers.map((m: Member) => {
 					const existing = expense.shares.find((s: any) => s.user.id === m.id);
 					return { userId: m.id, amount: existing ? parseFloat(existing.amount).toFixed(2) : '0.00' };
 				});
 			} else {
 				const currentUserId = $auth.user?.id;
-				payers = members.map((m: any) => ({
+				payers = sortedMembers.map((m: Member) => ({
 					userId: m.id,
 					amount: m.id === currentUserId ? '0.00' : '0.00'
 				}));
-				shares = members.map((m: any) => ({
+				shares = sortedMembers.map((m: Member) => ({
 					userId: m.id,
 					amount: '0.00'
 				}));

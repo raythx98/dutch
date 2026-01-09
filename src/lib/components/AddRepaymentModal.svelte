@@ -1,18 +1,23 @@
 <script lang="ts">
-	import { currencyStore, fetchAndSyncCurrencies } from '$lib/currency';
+	import { currencyStore, fetchAndSyncCurrencies, type Currency } from '$lib/currency';
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
 	import { onMount } from 'svelte';
 
-	let { groupId, members, expense, onClose, onSuccess } = $props();
+	let { groupId, members, expense, prefill, onClose, onSuccess } = $props();
+
+	interface Member {
+		id: string;
+		name: string;
+	}
 
 	let isEditing = !!expense;
 	let isViewOnly = $state(!!expense);
 
 	let name = $state<string>(expense ? expense.name : 'Repayment');
 	let description = $state<string>(expense ? expense.description : '');
-	let amount = $state<string>(expense ? expense.amount : '');
+	let amount = $state<string>(expense ? expense.amount : (prefill ? prefill.amount : ''));
 	let currencyId = $state<string>('');
 	
 	function getLocalDate(date: Date) {
@@ -31,20 +36,29 @@
 	let expenseDate = $state<string>(getLocalDate(initialDate));
 	let expenseTime = $state<string>(expense ? getLocalTime(initialDate) : '00:00');
 	
-	let debtorId = $state<string>('');
-	let creditorId = $state<string>('');
+	let payerId = $state<string>('');
+	let recipientId = $state<string>('');
 	let loading = $state(false);
 	let amountInput: HTMLInputElement;
 
+	const sortedMembers = $derived([...members].sort((a, b) => {
+		if (a.id === $auth.user?.id) return -1;
+		if (b.id === $auth.user?.id) return 1;
+		return a.name.localeCompare(b.name);
+	}));
+
 	$effect(() => {
-		if (members.length > 0 && !debtorId) {
+		if (sortedMembers.length > 0 && !payerId) {
 			if (expense) {
-				debtorId = expense.payers[0]?.user.id;
-				creditorId = expense.shares[0]?.user.id;
+				payerId = expense.payers[0]?.user.id;
+				recipientId = expense.shares[0]?.user.id;
+			} else if (prefill) {
+				payerId = prefill.payerId;
+				recipientId = prefill.recipientId;
 			} else {
-				debtorId = $auth.user?.id || members[0].id;
-				const firstNonMe = members.find((m: any) => m.id !== $auth.user?.id);
-				creditorId = firstNonMe ? firstNonMe.id : members[0].id;
+				payerId = $auth.user?.id || sortedMembers[0].id;
+				const firstNonMe = sortedMembers.find((m: Member) => m.id !== $auth.user?.id);
+				recipientId = firstNonMe ? firstNonMe.id : sortedMembers[0].id;
 			}
 		}
 	});
@@ -52,7 +66,10 @@
 	$effect(() => {
 		if ($currencyStore.length > 0 && !currencyId) {
 			if (expense) {
-				const found = $currencyStore.find(c => c.code === expense.currency.code);
+				const found = $currencyStore.find((c: Currency) => c.code === expense.currency.code);
+				if (found) currencyId = found.id;
+			} else if (prefill) {
+				const found = $currencyStore.find((c: Currency) => c.code === prefill.currencyCode);
 				if (found) currencyId = found.id;
 			} else {
 				currencyId = $currencyStore[0].id;
@@ -74,8 +91,8 @@
 			return;
 		}
 
-		if (debtorId === creditorId) {
-			toast.error('Debtor and Creditor cannot be the same person');
+		if (payerId === recipientId) {
+			toast.error('Payer and Recipient cannot be the same person');
 			return;
 		}
 
@@ -94,8 +111,8 @@
 				amount: totalAmount.toFixed(2),
 				currencyId,
 				expenseAt,
-				payers: [{ userId: debtorId, amount: totalAmount.toFixed(2) }],
-				shares: [{ userId: creditorId, amount: totalAmount.toFixed(2) }]
+				payers: [{ userId: recipientId, amount: totalAmount.toFixed(2) }],
+				shares: [{ userId: payerId, amount: totalAmount.toFixed(2) }]
 			};
 			data = await query(`
 				mutation EditExpense($id: ID!, $input: ExpenseInput!) {
@@ -112,8 +129,8 @@
 				amount: totalAmount.toFixed(2),
 				currencyId,
 				expenseAt,
-				debtor: debtorId,
-				creditor: creditorId
+				debtor: recipientId,
+				creditor: payerId
 			};
 			data = await query(`
 				mutation AddRepayment($groupId: ID!, $input: RepaymentInput!) {
@@ -197,8 +214,8 @@
 
 			<div class="form-group large-select">
 				<label for="debtor">Who paid?</label>
-				<select id="debtor" bind:value={debtorId} required disabled={isViewOnly}>
-					{#each members as member}
+				<select id="debtor" bind:value={payerId} required disabled={isViewOnly}>
+					{#each sortedMembers as member}
 						<option value={member.id}>
 							{member.name} {member.id === $auth.user?.id ? '(Me)' : ''}
 						</option>
@@ -208,8 +225,8 @@
 
 			<div class="form-group large-select">
 				<label for="creditor">To whom?</label>
-				<select id="creditor" bind:value={creditorId} required disabled={isViewOnly}>
-					{#each members as member}
+				<select id="creditor" bind:value={recipientId} required disabled={isViewOnly}>
+					{#each sortedMembers as member}
 						<option value={member.id}>
 							{member.name} {member.id === $auth.user?.id ? '(Me)' : ''}
 						</option>

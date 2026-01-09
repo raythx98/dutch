@@ -24,13 +24,34 @@
 
 	async function fetchPreview() {
 		if (!$auth.token) {
-			localStorage.setItem('pendingInvite', inviteCode);
+			if (inviteCode) {
+				localStorage.setItem('pendingInvite', inviteCode);
+			}
 			goto('/login');
 			return;
 		}
 
 		loading = true;
 		error = null;
+
+		// Check if already joined
+		const groupsData = await query<{ groups: { id: string, inviteToken: string }[] }>(`
+			query GetGroups {
+				groups {
+					id
+					inviteToken
+				}
+			}
+		`);
+
+		if (groupsData && inviteCode) {
+			const existing = groupsData.groups.find(g => g.inviteToken === inviteCode);
+			if (existing) {
+				toast.info('You are already a member of this group.');
+				goto(`/groups/${existing.id}`);
+				return;
+			}
+		}
 		
 		const data = await query<{ previewGroup: PreviewGroup }>(`
 			query PreviewGroup($code: String!) {
@@ -42,7 +63,7 @@
 					}
 				}
 			}
-		`, { code: inviteCode });
+		`, { code: inviteCode || '' });
 
 		if (data) {
 			group = data.previewGroup;

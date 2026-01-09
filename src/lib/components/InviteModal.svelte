@@ -74,7 +74,7 @@
 	}
 
 	header {
-		padding: 1.25rem;
+		padding: 1rem 1.25rem;
 		border-bottom: 1px solid #e5e7eb;
 		display: flex;
 		justify-content: space-between;
@@ -96,7 +96,7 @@
 	}
 
 	.modal-body {
-		padding: 1.25rem;
+		padding: 1rem 1.25rem 1.25rem;
 	}
 
 	.info-box {
@@ -173,7 +173,7 @@
 	}
 
 	footer {
-		padding: 1.25rem;
+		padding: 1rem 1.25rem;
 		border-top: 1px solid #e5e7eb;
 		display: flex;
 		justify-content: flex-end;

@@ -9,6 +9,7 @@
 	import AddExpenseModal from '$lib/components/AddExpenseModal.svelte';
 	import AddRepaymentModal from '$lib/components/AddRepaymentModal.svelte';
 	import DeleteGroupModal from '$lib/components/DeleteGroupModal.svelte';
+	import DeleteExpenseModal from '$lib/components/DeleteExpenseModal.svelte';
 	import InviteModal from '$lib/components/InviteModal.svelte';
 
 	const groupId = $page.params.id;
@@ -68,8 +69,11 @@
 	let showAddExpense = $state(false);
 	let showAddRepayment = $state(false);
 	let showDeleteGroup = $state(false);
+	let showDeleteExpense = $state(false);
 	let showInvite = $state(false);
 	let editingExpense = $state<Expense | undefined>(undefined);
+	let deletingExpense = $state<Expense | undefined>(undefined);
+	let settlementPrefill = $state<{payerId: string, recipientId: string, amount: string, currencyCode: string} | undefined>(undefined);
 
 	async function fetchData() {
 		loading = true;
@@ -139,20 +143,10 @@
 		loading = false;
 	}
 
-	async function handleDeleteExpense(e: Event, expenseId: string) {
+	async function handleDeleteExpense(e: Event, expense: Expense) {
 		e.stopPropagation();
-		if (!confirm('Are you sure you want to delete this expense?')) return;
-
-		const data = await query<{ deleteExpense: boolean }>(`
-			mutation DeleteExpense($id: ID!) {
-				deleteExpense(expenseId: $id)
-			}
-		`, { id: expenseId });
-
-		if (data?.deleteExpense) {
-			toast.success('Expense deleted');
-			await fetchData();
-		}
+		deletingExpense = expense;
+		showDeleteExpense = true;
 	}
 
 	function getBalanceForExpense(expense: Expense) {
@@ -181,6 +175,11 @@
 		} else {
 			showAddExpense = true;
 		}
+	}
+
+	function openSettlement(payerId: string, recipientId: string, amount: string, currencyCode: string) {
+		settlementPrefill = { payerId, recipientId, amount, currencyCode };
+		showAddRepayment = true;
 	}
 
 	onMount(fetchData);
@@ -215,10 +214,13 @@
 					<h3>You are owed</h3>
 					{#each summary.owed as o}
 						<div class="owe-item">
-							<span class="user">{o.user.name}</span>
-							<span class="amount positive">
-								{o.currency.symbol}{o.amount} {o.currency.code}
-							</span>
+							<div class="owe-info">
+								<span class="user">{o.user.name}</span>
+								<span class="amount positive">
+									{o.currency.symbol}{o.amount} {o.currency.code}
+								</span>
+							</div>
+							<button class="btn btn-xs btn-outline" onclick={() => openSettlement(o.user.id, $auth.user?.id || '', o.amount, o.currency.code)}>Settle</button>
 						</div>
 					{:else}
 						<p class="empty-msg">Nobody owes you anything.</p>
@@ -228,10 +230,13 @@
 					<h3>You owe</h3>
 					{#each summary.owes as o}
 						<div class="owe-item">
-							<span class="user">{o.user.name}</span>
-							<span class="amount negative">
-								{o.currency.symbol}{o.amount} {o.currency.code}
-							</span>
+							<div class="owe-info">
+								<span class="user">{o.user.name}</span>
+								<span class="amount negative">
+									{o.currency.symbol}{o.amount} {o.currency.code}
+								</span>
+							</div>
+							<button class="btn btn-xs btn-outline" onclick={() => openSettlement($auth.user?.id || '', o.user.id, o.amount, o.currency.code)}>Settle</button>
 						</div>
 					{:else}
 						<p class="empty-msg">You don't owe anything.</p>
@@ -329,7 +334,7 @@
 								{expense.currency.symbol}{expense.amount} {expense.currency.code}
 							</div>
 
-							<button class="delete-btn" onclick={(e) => handleDeleteExpense(e, expense.id)} title="Delete">&times;</button>
+							<button class="delete-btn" onclick={(e) => handleDeleteExpense(e, expense)} title="Delete">&times;</button>
 						</div>
 					{:else}
 						<div class="empty-state">
@@ -345,8 +350,13 @@
 				</div>
 				
 				{#if group}
+					{@const sortedMembers = [...group.members].sort((a, b) => {
+						if (a.id === $auth.user?.id) return -1;
+						if (b.id === $auth.user?.id) return 1;
+						return a.name.localeCompare(b.name);
+					})}
 					<ul class="member-list">
-						{#each group.members as member}
+						{#each sortedMembers as member}
 							<li>
 								<span class="name">
 									{member.name} 
@@ -385,8 +395,9 @@
 			groupId={groupId} 
 			members={group.members} 
 			expense={editingExpense}
-			onClose={() => { showAddRepayment = false; editingExpense = undefined; }} 
-			onSuccess={() => { showAddRepayment = false; editingExpense = undefined; fetchData(); }} 
+			prefill={settlementPrefill}
+			onClose={() => { showAddRepayment = false; editingExpense = undefined; settlementPrefill = undefined; }} 
+			onSuccess={() => { showAddRepayment = false; editingExpense = undefined; settlementPrefill = undefined; fetchData(); }} 
 		/>
 	{/if}
 
@@ -394,6 +405,14 @@
 		<DeleteGroupModal 
 			group={group}
 			onClose={() => showDeleteGroup = false}
+		/>
+	{/if}
+
+	{#if showDeleteExpense && deletingExpense}
+		<DeleteExpenseModal 
+			expense={deletingExpense}
+			onClose={() => { showDeleteExpense = false; deletingExpense = undefined; }}
+			onSuccess={() => { showDeleteExpense = false; deletingExpense = undefined; fetchData(); }}
 		/>
 	{/if}
 
@@ -410,6 +429,8 @@
 		max-width: 800px;
 		margin: 0 auto;
 		padding: 2rem;
+		width: 100%;
+		box-sizing: border-box;
 	}
 
 	header {
@@ -487,12 +508,38 @@
 	.owe-item {
 		display: flex;
 		justify-content: space-between;
+		align-items: center;
 		padding: 0.5rem 0;
 		border-bottom: 1px solid #f3f4f6;
+		gap: 0.5rem;
 	}
 
 	.owe-item:last-child {
 		border-bottom: none;
+	}
+
+	.owe-info {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+	}
+
+	.btn-xs {
+		padding: 0.25rem 0.6rem;
+		font-size: 0.75rem;
+		height: auto;
+		line-height: 1;
+	}
+
+	.btn-outline {
+		background: transparent;
+		border: 1px solid #d1d5db;
+		color: #374151;
+	}
+
+	.btn-outline:hover {
+		background: #f3f4f6;
+		border-color: #9ca3af;
 	}
 
 	.amount {

@@ -33,23 +33,23 @@ Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB 
     - [x] **Refresh Trigger:** Syncs `currencyStore` from API after any successful expense mutation.
 
 ### Phase 7: Refinements & Fixes (Active)
-- [ ] **UI Standardization:**
-    - **Widths:** Standardize container width between Dashboard and Group Details (Target: 800px for better readability).
-    - **Empty States:** Dashboard should show descriptive text (e.g., "You're all settled up"), standardized with group details page instead of "$0.00" when balances are empty.
-- [ ] **Components:**
-    - **Delete Expense Modal:** Create `DeleteExpenseModal.svelte` to replace browser `confirm()`, this should follow existing style of deleteGroup modal.
-- [ ] **Logic & UX:**
-    - **Member Sorting:** Ensure "You" always appears at the top of member lists, in the following places
-      - Delete Group Modal
-      - Group Details Page, Members tab
-      - Add/View/Edit Expense modal
-      - Add/View/Edit Settlement modal, to/from dropdown list
-    - **Invite/Delete Group and Delete Expense Modal:** Reduce the big gap between header and next item
-    - **Smart Settlement:** Prefill `AddRepaymentModal` with the correct creditor/debtor and amount if a debt exists.
-    - **Join Logic:** Handle "Already Joined" scenarios gracefully by redirecting to the Group Details page.
-    - **Currency Sorting Bug:** Fix issue where refreshing the page resets the currency list order.
-- [ ] **Bug Fix::**
-  - **Add Settlement/Repayment debtor/creditor:** After adding a settlement/repayment, the resulting expense has the to/from in the reverse order
+- [x] **UI Standardization:**
+    - [x] **Widths:** Standardize container width between Dashboard and Group Details (Target: 800px for better readability).
+    - [x] **Empty States:** Dashboard should show descriptive text (e.g., "You're all settled up"), standardized with group details page instead of "$0.00" when balances are empty.
+- [x] **Components:**
+    - [x] **Delete Expense Modal:** Create `DeleteExpenseModal.svelte` to replace browser `confirm()`, this should follow existing style of deleteGroup modal.
+- [x] **Logic & UX:**
+    - [x] **Member Sorting:** Ensure "You" always appears at the top of member lists, in the following places
+      - [x] Delete Group Modal
+      - [x] Group Details Page, Members tab
+      - [x] Add/View/Edit Expense modal
+      - [x] Add/View/Edit Settlement modal, to/from dropdown list
+    - [x] **Invite/Delete Group and Delete Expense Modal:** Reduce the big gap between header and next item
+    - [x] **Smart Settlement:** Prefill `AddRepaymentModal` with the correct creditor/debtor and amount if a debt exists.
+    - [x] **Join Logic:** Handle "Already Joined" scenarios gracefully by redirecting to the Group Details page.
+    - [x] **Currency Sorting Bug:** Fix issue where refreshing the page resets the currency list order.
+- [x] **Bug Fix::**
+  - [x] **Add Settlement/Repayment debtor/creditor:** After adding a settlement/repayment, the resulting expense has the to/from in the reverse order
 
 ## Backend Requirements (For BE Team)
 - [ ] **Bug Fixes:**

@@ -7,6 +7,7 @@ export interface Currency {
 	code: string;
 	name: string;
 	symbol: string;
+	sortOrder?: number;
 }
 
 interface DutchDB extends DBSchema {
@@ -60,8 +61,8 @@ async function saveCurrenciesToDB(currencies: Currency[]) {
 	const tx = db.transaction(STORE_NAME, 'readwrite');
 	const store = tx.objectStore(STORE_NAME);
 	await store.clear();
-	for (const currency of currencies) {
-		await store.put(currency);
+	for (let i = 0; i < currencies.length; i++) {
+		await store.put({ ...currencies[i], sortOrder: i });
 	}
 	await tx.done;
 }
@@ -71,9 +72,10 @@ export async function loadCurrenciesFromDB() {
 	console.log('Loading currencies from DB...');
 	const db = await dbPromise;
 	const allCurrencies = await db.getAll(STORE_NAME);
-	console.log('Currencies from DB:', allCurrencies);
 	
 	if (allCurrencies.length > 0) {
+		allCurrencies.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+		console.log('Currencies from DB (sorted):', allCurrencies);
 		currencyStore.set(allCurrencies);
 	} else {
 		console.log('DB empty, fetching from API...');
