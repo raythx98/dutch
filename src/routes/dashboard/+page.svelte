@@ -148,13 +148,22 @@
 		goto('/login');
 	}
 
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') {
+			showCreateModal = false;
+			showJoinModal = false;
+		}
+	}
+
 	onMount(() => {
 		fetchGroupsAndBalances();
 	});
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 <div class="dashboard">
-	<header>
+	<header class="dashboard-header">
 		<div class="logo">Dutch<span>.</span></div>
 		<div class="user-info">
 			<span class="welcome-text">Hi, <strong>{$auth.user?.name}</strong></span>
@@ -281,11 +290,6 @@
 </div>
 
 <style>
-	:global(body) {
-		margin: 0;
-		padding: 0;
-	}
-
 	.dashboard {
 		max-width: 800px;
 		margin: 0 auto;
@@ -294,7 +298,7 @@
 		box-sizing: border-box;
 	}
 
-	header {
+	.dashboard-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
@@ -339,7 +343,7 @@
 	}
 
 	.amount {
-		font-size: 1.25rem;
+		font-size: 1rem;
 		font-weight: 700;
 		margin: 0;
 	}
@@ -364,7 +368,8 @@
 
 	.group-label {
 		color: #6b7280;
-		font-weight: 500;
+		font-weight: 700;
+		font-size: 1rem;
 	}
 
 	.positive {

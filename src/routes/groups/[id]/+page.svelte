@@ -182,18 +182,30 @@
 		showAddRepayment = true;
 	}
 
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') {
+			const anyModalOpen = showAddMember || showAddExpense || showAddRepayment || showDeleteGroup || showDeleteExpense || showInvite;
+			if (!anyModalOpen) {
+				e.preventDefault();
+				goto('/dashboard');
+			}
+		}
+	}
+
 	onMount(fetchData);
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 <div class="group-page">
-	<header>
+	<header class="group-header">
 		<div class="header-top">
 			<button class="btn btn-back" onclick={() => goto('/dashboard')}>
 				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
 				Dashboard
 			</button>
 			{#if group}
-				<h1>{group.name}</h1>
+				<h1 class="group-title">{group.name}</h1>
 				<div class="header-actions">
 					<button class="btn btn-secondary btn-icon" onclick={() => showInvite = true} title="Share Group">
 						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
@@ -204,7 +216,7 @@
 					<button class="btn btn-primary add-member-top" onclick={() => showAddMember = true}>Add Member</button>
 				</div>
 			{:else}
-				<h1>Loading...</h1>
+				<h1 class="group-title">Loading...</h1>
 			{/if}
 		</div>
 
@@ -214,13 +226,13 @@
 					<h3>You are owed</h3>
 					{#each summary.owed as o}
 						<div class="owe-item">
-							<div class="owe-info">
-								<span class="user">{o.user.name}</span>
+							<span class="user">{o.user.name}</span>
+							<div class="owe-actions">
 								<span class="amount positive">
 									{o.currency.symbol}{o.amount} {o.currency.code}
 								</span>
+								<button class="btn btn-xs btn-outline" onclick={() => openSettlement(o.user.id, $auth.user?.id || '', o.amount, o.currency.code)}>Settle</button>
 							</div>
-							<button class="btn btn-xs btn-outline" onclick={() => openSettlement(o.user.id, $auth.user?.id || '', o.amount, o.currency.code)}>Settle</button>
 						</div>
 					{:else}
 						<p class="empty-msg">Nobody owes you anything.</p>
@@ -230,13 +242,13 @@
 					<h3>You owe</h3>
 					{#each summary.owes as o}
 						<div class="owe-item">
-							<div class="owe-info">
-								<span class="user">{o.user.name}</span>
+							<span class="user">{o.user.name}</span>
+							<div class="owe-actions">
 								<span class="amount negative">
 									{o.currency.symbol}{o.amount} {o.currency.code}
 								</span>
+								<button class="btn btn-xs btn-outline" onclick={() => openSettlement($auth.user?.id || '', o.user.id, o.amount, o.currency.code)}>Settle</button>
 							</div>
-							<button class="btn btn-xs btn-outline" onclick={() => openSettlement($auth.user?.id || '', o.user.id, o.amount, o.currency.code)}>Settle</button>
 						</div>
 					{:else}
 						<p class="empty-msg">You don't owe anything.</p>
@@ -269,7 +281,6 @@
 				<div class="tab-header">
 					<h2>Expenses</h2>
 					<div class="actions">
-						<button class="btn btn-secondary" onclick={() => showAddRepayment = true}>Settle</button>
 						<button class="btn btn-primary" onclick={() => { editingExpense = undefined; showAddExpense = true; }}>Add Expense</button>
 					</div>
 				</div>
@@ -350,11 +361,7 @@
 				</div>
 				
 				{#if group}
-					{@const sortedMembers = [...group.members].sort((a, b) => {
-						if (a.id === $auth.user?.id) return -1;
-						if (b.id === $auth.user?.id) return 1;
-						return a.name.localeCompare(b.name);
-					})}
+					{@const sortedMembers = [...group.members].sort((a, b) => a.id === $auth.user?.id ? -1 : (b.id === $auth.user?.id ? 1 : 0))}
 					<ul class="member-list">
 						{#each sortedMembers as member}
 							<li>
@@ -433,8 +440,12 @@
 		box-sizing: border-box;
 	}
 
-	header {
+	.group-header {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
 		margin-bottom: 2rem;
+		width: 100%;
 	}
 
 	.header-top {
@@ -445,10 +456,12 @@
 		margin-bottom: 2rem;
 	}
 
-	.header-top h1 {
+	.group-title {
 		flex: 1;
 		margin: 0;
 		font-size: 1.25rem;
+		line-height: 1.2;
+		font-weight: 700;
 	}
 
 	.header-actions {
@@ -518,10 +531,16 @@
 		border-bottom: none;
 	}
 
-	.owe-info {
+	.owe-actions {
 		display: flex;
-		flex-direction: column;
-		flex: 1;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.user {
+		color: #6b7280;
+		font-weight: 700;
+		font-size: 1rem;
 	}
 
 	.btn-xs {
@@ -531,19 +550,9 @@
 		line-height: 1;
 	}
 
-	.btn-outline {
-		background: transparent;
-		border: 1px solid #d1d5db;
-		color: #374151;
-	}
-
-	.btn-outline:hover {
-		background: #f3f4f6;
-		border-color: #9ca3af;
-	}
-
 	.amount {
-		font-weight: 600;
+		font-weight: 700;
+		font-size: 1rem;
 	}
 
 	.positive { color: #059669; }
@@ -771,5 +780,16 @@
 		padding: 3rem;
 		text-align: center;
 		color: #9ca3af;
+	}
+
+	.btn-outline {
+		background: transparent;
+		border: 1px solid #d1d5db;
+		color: #374151;
+	}
+
+	.btn-outline:hover {
+		background: #f3f4f6;
+		border-color: #9ca3af;
 	}
 </style>

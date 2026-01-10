@@ -14,11 +14,17 @@
 		navigator.clipboard.writeText(inviteToken);
 		toast.success('Invite code copied to clipboard');
 	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') onClose();
+	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <div class="modal-backdrop" onclick={onClose} role="presentation">
 	<div class="modal-content" onclick={e => e.stopPropagation()} role="presentation">
-		<header>
+		<header class="modal-header">
 			<h2>Invite to Group</h2>
 			<button class="close-btn" onclick={onClose}>&times;</button>
 		</header>
@@ -73,7 +79,7 @@
 		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 	}
 
-	header {
+	.modal-header {
 		padding: 1rem 1.25rem;
 		border-bottom: 1px solid #e5e7eb;
 		display: flex;
@@ -81,7 +87,7 @@
 		align-items: center;
 	}
 
-	header h2 {
+	.modal-header h2 {
 		margin: 0;
 		font-size: 1.25rem;
 		color: #111827;
@@ -125,6 +131,7 @@
 
 	.link-container {
 		display: flex;
+		align-items: center;
 		gap: 0.5rem;
 		margin: 1rem 0;
 	}
@@ -177,24 +184,6 @@
 		border-top: 1px solid #e5e7eb;
 		display: flex;
 		justify-content: flex-end;
-	}
-
-	.btn {
-		padding: 0.625rem 1.25rem;
-		border-radius: 6px;
-		font-weight: 600;
-		cursor: pointer;
-		border: 1px solid transparent;
-	}
-
-	.btn-secondary {
-		background: white;
-		border-color: #d1d5db;
-		color: #374151;
-	}
-
-	.btn-primary {
-		background: #2563eb;
-		color: white;
+		align-items: center;
 	}
 </style>

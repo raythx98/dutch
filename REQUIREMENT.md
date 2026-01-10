@@ -56,8 +56,8 @@ Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB 
     - **Owes Aggregation:** Fix bug where owing multiple people results in only one appearing in the summary.
     - **Ghost Debts:** Fix bug where cross-currency debts sometimes result in duplicate or reversed entries (e.g., showing both "You owe A $20" and "A owes You $20" incorrectly), this bug is non-deterministic (it happens on/off after refresh).
 - [ ] **Logic Improvements:**
-    - **Stable Sorting:** Editing an expense should **not** move it to the end of the list (Preserve insertion order).
-    - **Group Currencies:** Instead of tracking currency usage by user, API should return a sorted list of *used* currencies for the group to allow the FE to prioritize them in dropdowns.
+    - **Stable Sorting:** An expense happening at the exact same time should then by sorted based on insertion order (latest at the top), the insertion order must remain the same even when the expense is edited (which is a delete + insert in backend).
+    - **Group Currencies:** Instead of tracking currency usage by user, API should return a sorted list of *used* currenciesf (DESC by num of usages) for the group to allow the FE to prioritize them in dropdowns.
     - **Rate Limiting:** Add rate limits to all endpoints.
 
 ## Backlog

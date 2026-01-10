@@ -18,13 +18,9 @@
 	let { group, onClose }: { group: Group; onClose: () => void } = $props();
 	let loading = $state(false);
 
-	const sortedMembers = $derived([...group.members].sort((a, b) => {
-		if (a.id === $auth.user?.id) return -1;
-		if (b.id === $auth.user?.id) return 1;
-		return a.name.localeCompare(b.name);
-	}));
+	const sortedMembers = $derived([...group.members].sort((a, b) => a.id === $auth.user?.id ? -1 : (b.id === $auth.user?.id ? 1 : 0)));
 
-	const MAX_VISIBLE_MEMBERS = 10;
+	const MAX_VISIBLE_MEMBERS = 5;
 	const visibleMembers = $derived(sortedMembers.slice(0, MAX_VISIBLE_MEMBERS));
 	const remainingCount = $derived(Math.max(0, sortedMembers.length - MAX_VISIBLE_MEMBERS));
 
@@ -43,11 +39,26 @@
 			loading = false;
 		}
 	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			e.stopPropagation();
+			onClose();
+		}
+		if (e.key === 'Enter' && !loading) {
+			e.preventDefault();
+			e.stopPropagation();
+			handleDelete();
+		}
+	}
 </script>
+
+<svelte:window onkeydowncapture={handleKeydown} />
 
 <div class="modal-backdrop" onclick={onClose} role="presentation">
 	<div class="modal-content" onclick={e => e.stopPropagation()} role="presentation">
-		<header>
+		<header class="modal-header">
 			<h2>Delete Group</h2>
 			<button class="close-btn" onclick={onClose}>&times;</button>
 		</header>
@@ -110,7 +121,7 @@
 		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 	}
 
-	header {
+	.modal-header {
 		padding: 1rem 1.25rem;
 		border-bottom: 1px solid #e5e7eb;
 		display: flex;
@@ -118,7 +129,7 @@
 		align-items: center;
 	}
 
-	header h2 {
+	.modal-header h2 {
 		margin: 0;
 		font-size: 1.25rem;
 		color: #111827;
@@ -206,15 +217,12 @@
 	}
 
 	.me-tag {
-		background: #f3f4f6;
-		color: #4b5563;
-		font-size: 0.7rem;
+		background: #e0f2fe;
+		color: #0369a1;
+		font-size: 0.75rem;
 		padding: 0.1rem 0.4rem;
 		border-radius: 4px;
 		font-weight: 600;
-		margin-left: 0.1rem;
-		text-transform: uppercase;
-		border: 1px solid #e5e7eb;
 	}
 
 	.more-tag {
@@ -222,7 +230,7 @@
 		align-items: center;
 		color: #6b7280;
 		font-size: 0.875rem;
-		padding: 0.25rem 0.5rem;
+		padding: 0.25rem 0;
 		font-style: italic;
 	}
 
@@ -232,20 +240,6 @@
 		display: flex;
 		justify-content: flex-end;
 		gap: 0.75rem;
-	}
-
-	.btn {
-		padding: 0.625rem 1.25rem;
-		border-radius: 6px;
-		font-weight: 600;
-		cursor: pointer;
-		border: 1px solid transparent;
-	}
-
-	.btn-secondary {
-		background: white;
-		border-color: #d1d5db;
-		color: #374151;
 	}
 
 	.btn-danger {

@@ -1,10 +1,21 @@
 <script lang="ts">
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
+	import { auth } from '$lib/auth';
+
+	interface User {
+		id: string;
+		name: string;
+	}
 
 	interface Currency {
 		code: string;
 		symbol: string;
+	}
+
+	interface Share {
+		user: User;
+		amount: string;
 	}
 
 	interface Expense {
@@ -12,10 +23,23 @@
 		name: string;
 		amount: string;
 		currency: Currency;
+		payers: Share[];
+		shares: Share[];
 	}
 
 	let { expense, onClose, onSuccess }: { expense: Expense; onClose: () => void; onSuccess: () => void } = $props();
 	let loading = $state(false);
+
+	const affectedMembers = $derived.by(() => {
+		const users = new Map<string, User>();
+		expense.payers.forEach(p => users.set(p.user.id, p.user));
+		expense.shares.forEach(s => users.set(s.user.id, s.user));
+		return Array.from(users.values()).sort((a, b) => a.id === $auth.user?.id ? -1 : (b.id === $auth.user?.id ? 1 : 0));
+	});
+
+	const MAX_VISIBLE_MEMBERS = 5;
+	const visibleMembers = $derived(affectedMembers.slice(0, MAX_VISIBLE_MEMBERS));
+	const remainingCount = $derived(Math.max(0, affectedMembers.length - MAX_VISIBLE_MEMBERS));
 
 	async function handleDelete() {
 		loading = true;
@@ -32,11 +56,26 @@
 			loading = false;
 		}
 	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			e.stopPropagation();
+			onClose();
+		}
+		if (e.key === 'Enter' && !loading) {
+			e.preventDefault();
+			e.stopPropagation();
+			handleDelete();
+		}
+	}
 </script>
+
+<svelte:window onkeydowncapture={handleKeydown} />
 
 <div class="modal-backdrop" onclick={onClose} role="presentation">
 	<div class="modal-content" onclick={e => e.stopPropagation()} role="presentation">
-		<header>
+		<header class="modal-header">
 			<h2>Delete Expense</h2>
 			<button class="close-btn" onclick={onClose}>&times;</button>
 		</header>
@@ -44,7 +83,7 @@
 		<div class="modal-body">
 			<div class="warning-box">
 				<span class="emoji">⚠️</span>
-				<p>Are you sure you want to delete <strong>{expense.name || 'this expense'}</strong>?</p>
+				<p>This action is permanent and will delete <strong>{expense.name || 'this expense'}</strong> for all involved members.</p>
 			</div>
 
 			<div class="expense-preview">
@@ -54,7 +93,25 @@
 				</div>
 			</div>
 
-			<p>This action cannot be undone.</p>
+			<div class="members-preview">
+				<h3>Affected Members ({affectedMembers.length})</h3>
+				<div class="tags-container">
+					{#each visibleMembers as member}
+						<span class="member-tag">
+							<span class="avatar">{member.name[0]}</span>
+							<span class="name">{member.name}</span>
+							{#if member.id === $auth.user?.id}
+								<span class="me-tag">You</span>
+							{/if}
+						</span>
+					{/each}
+					{#if remainingCount > 0}
+						<span class="more-tag">& {remainingCount} more...</span>
+					{/if}
+				</div>
+			</div>
+
+			<p>Are you sure you want to proceed?</p>
 		</div>
 
 		<footer>
@@ -84,11 +141,11 @@
 		background: white;
 		border-radius: 12px;
 		width: 90%;
-		max-width: 400px;
+		max-width: 450px;
 		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 	}
 
-	header {
+	.modal-header {
 		padding: 1rem 1.25rem;
 		border-bottom: 1px solid #e5e7eb;
 		display: flex;
@@ -96,7 +153,7 @@
 		align-items: center;
 	}
 
-	header h2 {
+	.modal-header h2 {
 		margin: 0;
 		font-size: 1.25rem;
 		color: #111827;
@@ -124,7 +181,7 @@
 		border-radius: 6px;
 		margin-bottom: 1.25rem;
 		color: #991b1b;
-		font-size: 0.95rem;
+		font-size: 0.9rem;
 	}
 
 	.warning-box p {
@@ -165,6 +222,69 @@
 		color: #111827;
 	}
 
+	.members-preview {
+		margin-bottom: 1.25rem;
+	}
+
+	.members-preview h3 {
+		font-size: 0.875rem;
+		color: #6b7280;
+		text-transform: uppercase;
+		margin-bottom: 0.75rem;
+	}
+
+	.tags-container {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.member-tag {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		background: white;
+		padding: 0.25rem 0.75rem 0.25rem 0.25rem;
+		border-radius: 9999px;
+		font-size: 0.875rem;
+		color: #374151;
+		border: 1px solid #e5e7eb;
+		box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+		font-weight: 500;
+	}
+
+	.avatar {
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		background: #eff6ff;
+		color: #3b82f6;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.7rem;
+		font-weight: 700;
+		text-transform: uppercase;
+	}
+
+	.me-tag {
+		background: #e0f2fe;
+		color: #0369a1;
+		font-size: 0.75rem;
+		padding: 0.1rem 0.4rem;
+		border-radius: 4px;
+		font-weight: 600;
+	}
+
+	.more-tag {
+		display: inline-flex;
+		align-items: center;
+		color: #6b7280;
+		font-size: 0.875rem;
+		padding: 0.25rem 0;
+		font-style: italic;
+	}
+
 	p {
 		color: #4b5563;
 		margin: 0;
@@ -176,20 +296,6 @@
 		display: flex;
 		justify-content: flex-end;
 		gap: 0.75rem;
-	}
-
-	.btn {
-		padding: 0.625rem 1.25rem;
-		border-radius: 6px;
-		font-weight: 600;
-		cursor: pointer;
-		border: 1px solid transparent;
-	}
-
-	.btn-secondary {
-		background: white;
-		border-color: #d1d5db;
-		color: #374151;
 	}
 
 	.btn-danger {

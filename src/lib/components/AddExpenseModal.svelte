@@ -39,11 +39,7 @@
 	let loading = $state(false);
 	let amountInput: HTMLInputElement;
 
-	const sortedMembers = $derived([...members].sort((a, b) => {
-		if (a.id === $auth.user?.id) return -1;
-		if (b.id === $auth.user?.id) return 1;
-		return a.name.localeCompare(b.name);
-	}));
+	const sortedMembers = $derived([...members].sort((a, b) => a.id === $auth.user?.id ? -1 : (b.id === $auth.user?.id ? 1 : 0)));
 
 	// Payers and Shares state
 	let payers = $state<{ userId: string; amount: string }[]>([]);
@@ -70,6 +66,9 @@
 			text: diff > 0 ? 'exceed by' : 'under by'
 		};
 	});
+
+	const filteredPayers = $derived(isViewOnly ? payers.filter(p => parseFloat(p.amount) > 0) : payers);
+	const filteredShares = $derived(isViewOnly ? shares.filter(s => parseFloat(s.amount) > 0) : shares);
 
 	function getName(member: Member | undefined) {
 		if (!member) return 'Unknown';
@@ -245,11 +244,17 @@
 		}
 		loading = false;
 	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') onClose();
+	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <div class="modal-backdrop" onclick={onClose} aria-hidden="true">
 	<div class="modal-content" onclick={e => e.stopPropagation()} aria-hidden="true">
-		<header>
+		<header class="modal-header">
 			<h2>{isEditing ? (isViewOnly ? 'Expense Details' : 'Edit Expense') : 'Add Expense'}</h2>
 			<button class="close-btn" onclick={onClose}>&times;</button>
 		</header>
@@ -316,7 +321,7 @@
 					{/if}
 				</div>
 				<div class="share-list">
-					{#each payers as payer}
+					{#each filteredPayers as payer}
 						<div class="share-item">
 							<div class="share-user">
 								<span class="name">{getName(members.find((m: any) => m.id === payer.userId))}</span>
@@ -346,7 +351,7 @@
 					{/if}
 				</div>
 				<div class="share-list">
-					{#each shares as share}
+					{#each filteredShares as share}
 						<div class="share-item">
 							<div class="share-user">
 								<span class="name">{getName(members.find((m: any) => m.id === share.userId))}</span>
@@ -407,14 +412,14 @@
 		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 	}
 
-	header {
+	.modal-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 1.5rem;
 	}
 
-	header h2 { margin: 0; font-size: 1.25rem; }
+	.modal-header h2 { margin: 0; font-size: 1.25rem; }
 
 	.close-btn {
 		background: none;
@@ -605,6 +610,7 @@
 	.modal-actions {
 		display: flex;
 		justify-content: flex-end;
+		align-items: center;
 		gap: 1rem;
 		margin-top: 2rem;
 	}

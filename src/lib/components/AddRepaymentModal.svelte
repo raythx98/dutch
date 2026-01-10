@@ -41,11 +41,7 @@
 	let loading = $state(false);
 	let amountInput: HTMLInputElement;
 
-	const sortedMembers = $derived([...members].sort((a, b) => {
-		if (a.id === $auth.user?.id) return -1;
-		if (b.id === $auth.user?.id) return 1;
-		return a.name.localeCompare(b.name);
-	}));
+	const sortedMembers = $derived([...members].sort((a, b) => a.id === $auth.user?.id ? -1 : (b.id === $auth.user?.id ? 1 : 0)));
 
 	$effect(() => {
 		if (sortedMembers.length > 0 && !payerId) {
@@ -148,11 +144,17 @@
 		}
 		loading = false;
 	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') onClose();
+	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <div class="modal-backdrop" onclick={onClose} aria-hidden="true">
 	<div class="modal-content" onclick={e => e.stopPropagation()} aria-hidden="true">
-		<header>
+		<header class="modal-header">
 			<h2>{isEditing ? (isViewOnly ? 'Repayment Details' : 'Edit Repayment') : 'Record Repayment'}</h2>
 			<button class="close-btn" onclick={onClose}>&times;</button>
 		</header>
@@ -271,14 +273,14 @@
 		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 	}
 
-	header {
+	.modal-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 1.5rem;
 	}
 
-	header h2 { margin: 0; font-size: 1.25rem; }
+	.modal-header h2 { margin: 0; font-size: 1.25rem; }
 
 	.close-btn {
 		background: none;
@@ -374,6 +376,7 @@
 	.modal-actions {
 		display: flex;
 		justify-content: flex-end;
+		align-items: center;
 		gap: 1rem;
 		margin-top: 2rem;
 	}

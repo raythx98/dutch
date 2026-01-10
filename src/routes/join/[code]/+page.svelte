@@ -18,7 +18,7 @@
 	let joining = $state(false);
 	let error = $state<string | null>(null);
 
-	const MAX_VISIBLE_MEMBERS = 15;
+	const MAX_VISIBLE_MEMBERS = 5;
 	const visibleMembers = $derived(group ? group.members.slice(0, MAX_VISIBLE_MEMBERS) : []);
 	const remainingCount = $derived(group ? Math.max(0, group.members.length - MAX_VISIBLE_MEMBERS) : 0);
 
@@ -91,8 +91,15 @@
 		}
 	}
 
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') goto('/dashboard');
+		if (e.key === 'Enter' && group && !joining) handleJoin();
+	}
+
 	onMount(fetchPreview);
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <div class="join-page">
 	<div class="card">
@@ -108,7 +115,7 @@
 				<button class="btn btn-primary" onclick={() => goto('/dashboard')}>Go to Dashboard</button>
 			</div>
 		{:else if group}
-			<header>
+			<header class="join-header">
 				<div class="invite-icon">
 					<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
 				</div>
@@ -143,11 +150,18 @@
 
 <style>
 	.join-page {
-		min-height: 80vh;
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		padding: 2rem;
+		box-sizing: border-box;
+		background: var(--bg-color);
+		z-index: 10;
 	}
 
 	.card {
@@ -160,7 +174,10 @@
 		text-align: center;
 	}
 
-	header {
+	.join-header {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
 		margin-bottom: 2rem;
 	}
 
@@ -182,7 +199,7 @@
 		color: #111827;
 	}
 
-	header p {
+	.join-header p {
 		color: #6b7280;
 		margin: 0;
 	}
@@ -243,16 +260,17 @@
 		align-items: center;
 		color: #6b7280;
 		font-size: 0.875rem;
-		padding: 0.25rem 0.5rem;
+		padding: 0.25rem 0;
 		font-style: italic;
 	}
 
 	.actions {
 		display: flex;
 		gap: 1rem;
+		align-items: center;
 	}
 
-	.btn {
+	.actions .btn {
 		flex: 1;
 		padding: 0.75rem;
 		border-radius: 8px;
@@ -262,22 +280,22 @@
 		border: 1px solid transparent;
 	}
 
-	.btn-primary {
+	.actions .btn-primary {
 		background: #2563eb;
 		color: white;
 	}
 
-	.btn-primary:hover {
+	.actions .btn-primary:hover {
 		background: #1d4ed8;
 	}
 
-	.btn-secondary {
+	.actions .btn-secondary {
 		background: white;
 		border-color: #d1d5db;
 		color: #374151;
 	}
 
-	.btn-secondary:hover {
+	.actions .btn-secondary:hover {
 		background: #f9fafb;
 		border-color: #9ca3af;
 	}
