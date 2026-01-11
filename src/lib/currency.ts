@@ -1,14 +1,7 @@
 import { openDB, type DBSchema } from 'idb';
 import { writable } from 'svelte/store';
 import { query } from './api';
-
-export interface Currency {
-	id: string;
-	code: string;
-	name: string;
-	symbol: string;
-	sortOrder?: number;
-}
+import type { Currency } from './types';
 
 interface DutchDB extends DBSchema {
 	currencies: {

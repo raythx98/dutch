@@ -5,6 +5,7 @@
 	import { loadCurrenciesFromDB } from '$lib/currency';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { onMount } from 'svelte';
 	import '../app.css';
 
@@ -17,14 +18,14 @@
 			const path = $page.url.pathname;
 
 			if (!$auth.token && !publicPages.includes(path)) {
-				goto('/login');
+				goto(`${base}/login`);
 			} else if ($auth.token) {
 				loadCurrenciesFromDB();
 				if (path === '/login' || path === '/register' || path === '/') {
-					goto('/dashboard');
+					goto(`${base}/dashboard`);
 				}
 			} else if (path === '/') {
-				goto('/dashboard');
+				goto(`${base}/dashboard`);
 			}
 		});
 

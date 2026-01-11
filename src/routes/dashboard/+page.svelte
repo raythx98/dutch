@@ -2,13 +2,10 @@
 	import { auth } from '$lib/auth';
 	import { toast } from '$lib/toast';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { query } from '$lib/api';
 	import { onMount } from 'svelte';
-
-	interface Group {
-		id: string;
-		name: string;
-	}
+	import type { Group } from '$lib/types';
 
 	interface Balance {
 		groupName: string;
@@ -149,13 +146,13 @@
 	function handleJoinGroup(e: Event) {
 		e.preventDefault();
 		if (!joinCode.trim()) return;
-		goto(`/join/${joinCode}`);
+		goto(`${base}/join/${joinCode}`);
 	}
 
 	function logout() {
 		auth.logout();
 		toast.info('Logged out successfully');
-		goto('/login');
+		goto(`${base}/login`);
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -177,7 +174,7 @@
 		<div class="logo">Dutch<span>.</span></div>
 		<div class="user-info">
 			<span class="welcome-text">Hi, <strong>{$auth.user?.name}</strong></span>
-			<button class="btn btn-secondary" onclick={() => goto('/settings')}>Settings</button>
+			<button class="btn btn-secondary" onclick={() => goto(`${base}/settings`)}>Settings</button>
 			<button class="btn btn-secondary" onclick={logout}>Logout</button>
 		</div>
 	</header>
@@ -235,7 +232,7 @@
 			{:else}
 				<div class="groups-grid">
 					{#each groups as group}
-						<button class="group-card" onclick={() => goto(`/groups/${group.id}`)}>
+						<button class="group-card" onclick={() => goto(`${base}/groups/${group.id}`)}>
 							<span class="group-name">{group.name}</span>
 							<span class="chevron">&rarr;</span>
 						</button>

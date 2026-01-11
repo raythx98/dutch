@@ -4,13 +4,15 @@
 	import { auth } from '$lib/auth';
 	import { query } from '$lib/api';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { toast } from '$lib/toast';
+	import type { User } from '$lib/types';
 
 	const inviteCode = $page.params.code;
 	
 	interface PreviewGroup {
 		name: string;
-		members: { id: string; name: string }[];
+		members: User[];
 	}
 
 	let group = $state<PreviewGroup | null>(null);
@@ -27,7 +29,7 @@
 			if (inviteCode) {
 				localStorage.setItem('pendingInvite', inviteCode);
 			}
-			goto('/login');
+			goto(`${base}/login`);
 			return;
 		}
 
@@ -66,14 +68,14 @@
 
 		if (data?.joinGroup) {
 			toast.success(`Successfully joined ${group?.name}!`);
-			goto(`/groups/${data.joinGroup.id}`);
+			goto(`${base}/groups/${data.joinGroup.id}`);
 		} else {
 			joining = false;
 		}
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') goto('/dashboard');
+		if (e.key === 'Escape') goto(`${base}/dashboard`);
 		if (e.key === 'Enter' && group && !joining) handleJoin();
 	}
 
@@ -93,7 +95,7 @@
 				<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="error-icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
 				<h2>Invitation Error</h2>
 				<p>{error}</p>
-				<button class="btn btn-primary" onclick={() => goto('/dashboard')}>Go to Dashboard</button>
+				<button class="btn btn-primary" onclick={() => goto(`${base}/dashboard`)}>Go to Dashboard</button>
 			</div>
 		{:else if group}
 			<header class="join-header">
@@ -120,7 +122,7 @@
 			</div>
 
 			<div class="actions">
-				<button class="btn btn-secondary" onclick={() => goto('/dashboard')} disabled={joining}>Decline</button>
+				<button class="btn btn-secondary" onclick={() => goto(`${base}/dashboard`)} disabled={joining}>Decline</button>
 				<button class="btn btn-primary join-btn" onclick={handleJoin} disabled={joining}>
 					{joining ? 'Joining...' : 'Accept & Join'}
 				</button>

@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { auth } from '$lib/auth';
 	import { get } from 'svelte/store';
 
 	onMount(() => {
 		const $auth = get(auth);
 		if ($auth.token) {
-			goto('/dashboard');
+			goto(`${base}/dashboard`);
 		} else {
-			goto('/login');
+			goto(`${base}/login`);
 		}
 	});
 </script>

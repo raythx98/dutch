@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { auth } from '$lib/auth';
-	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { goto } from '$app/navigation';
-	import { fetchAndSyncCurrencies } from '$lib/currency';
+	import { base } from '$app/paths';
+	import { query } from '$lib/api';
 
 	let email = $state('');
 	let password = $state('');
@@ -46,9 +46,9 @@
 			const pendingInvite = localStorage.getItem('pendingInvite');
 			if (pendingInvite) {
 				localStorage.removeItem('pendingInvite');
-				goto(`/join/${pendingInvite}`);
+				goto(`${base}/join/${pendingInvite}`);
 			} else {
-				goto('/dashboard');
+				goto(`${base}/dashboard`);
 			}
 		}
 	}
@@ -72,12 +72,11 @@
 			{loading ? 'Logging in...' : 'Login'}
 		</button>
 
-		<p class="switch">
-			Don't have an account? <a href="/register">Register here</a>
-		</p>
-	</form>
-</div>
-
+		        <p class="switch">
+		            Don't have an account? <a href="{base}/register">Register here</a>
+		        </p>
+		    </form>
+		</div>
 <style>
 	.auth-container {
 		display: flex;

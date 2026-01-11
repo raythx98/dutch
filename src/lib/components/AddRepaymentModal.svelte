@@ -4,13 +4,17 @@
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
 	import { onMount } from 'svelte';
+	import type { User, Expense } from '$lib/types';
 
-	let { groupId, members, expense, prefill, usedCurrencies = [], onClose, onSuccess } = $props();
-
-	interface Member {
-		id: string;
-		name: string;
-	}
+	let { groupId, members, expense, prefill, usedCurrencies = [], onClose, onSuccess } = $props() as {
+		groupId: string,
+		members: User[],
+		expense?: Expense,
+		prefill?: { amount: string, payerId: string, recipientId: string, currencyCode: string },
+		usedCurrencies?: Currency[],
+		onClose: () => void,
+		onSuccess: () => void
+	};
 
 	let isEditing = !!expense;
 	let isViewOnly = $state(!!expense);

@@ -2,18 +2,9 @@
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { auth } from '$lib/auth';
-
-	interface User {
-		id: string;
-		name: string;
-	}
-
-	interface Group {
-		id: string;
-		name: string;
-		members: User[];
-	}
+	import type { Group } from '$lib/types';
 
 	let { group, onClose }: { group: Group; onClose: () => void } = $props();
 	let loading = $state(false);
@@ -34,7 +25,7 @@
 
 		if (data?.deleteGroup) {
 			toast.success('Group deleted successfully');
-			goto('/dashboard');
+			goto(`${base}/dashboard`);
 		} else {
 			loading = false;
 		}

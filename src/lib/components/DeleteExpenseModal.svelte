@@ -2,30 +2,7 @@
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
-
-	interface User {
-		id: string;
-		name: string;
-	}
-
-	interface Currency {
-		code: string;
-		symbol: string;
-	}
-
-	interface Share {
-		user: User;
-		amount: string;
-	}
-
-	interface Expense {
-		id: string;
-		name: string;
-		amount: string;
-		currency: Currency;
-		payers: Share[];
-		shares: Share[];
-	}
+	import type { Expense } from '$lib/types';
 
 	let { expense, onClose, onSuccess }: { expense: Expense; onClose: () => void; onSuccess: () => void } = $props();
 	let loading = $state(false);

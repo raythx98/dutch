@@ -3,6 +3,8 @@ import { toast } from './toast';
 import { get } from 'svelte/store';
 import { goto } from '$app/navigation';
 
+import { base } from '$app/paths';
+
 const API_URL = 'http://localhost:8080/query';
 
 export async function query<T>(
@@ -32,7 +34,7 @@ export async function query<T>(
 		if (response.status === 401) {
 			auth.logout();
 			toast.error('Session expired. Please log in again.');
-			goto('/login');
+			goto(`${base}/login`);
 			return null;
 		}
 

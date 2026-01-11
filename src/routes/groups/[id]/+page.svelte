@@ -3,8 +3,10 @@
 	import { query } from '$lib/api';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { auth } from '$lib/auth';
 	import { toast } from '$lib/toast';
+	import type { Group, Expense, ExpenseSummary, Currency } from '$lib/types';
 	import AddMemberModal from '$lib/components/AddMemberModal.svelte';
 	import AddExpenseModal from '$lib/components/AddExpenseModal.svelte';
 	import AddRepaymentModal from '$lib/components/AddRepaymentModal.svelte';
@@ -13,55 +15,6 @@
 	import InviteModal from '$lib/components/InviteModal.svelte';
 
 	const groupId = $page.params.id;
-
-	interface User {
-		id: string;
-		name: string;
-	}
-
-	interface Group {
-		id: string;
-		name: string;
-		inviteToken: string;
-		members: User[];
-		usedCurrencies: Currency[];
-	}
-
-	interface Currency {
-		id: string;
-		code: string;
-		symbol: string;
-		name: string;
-	}
-
-	interface Share {
-		user: { id: string; name: string };
-		amount: string;
-	}
-
-	interface Expense {
-		id: string;
-		type: string;
-		name: string;
-		description: string;
-		amount: string;
-		expenseAt: string;
-		currency: Currency;
-		payers: Share[];
-		shares: Share[];
-	}
-
-	interface Owe {
-		user: User;
-		amount: string;
-		currency: { code: string; symbol: string; name: string };
-	}
-
-	interface ExpenseSummary {
-		expenses: Expense[];
-		owes: Owe[];
-		owed: Owe[];
-	}
 
 	let group = $state<Group | null>(null);
 	let summary = $state<ExpenseSummary | null>(null);
@@ -136,7 +89,7 @@
 
 		if (!group) {
 			toast.error('Group not found');
-			goto('/dashboard');
+			goto(`${base}/dashboard`);
 			return;
 		}
 		
@@ -187,7 +140,7 @@
 			const anyModalOpen = showAddMember || showAddExpense || showAddRepayment || showDeleteGroup || showDeleteExpense || showInvite;
 			if (!anyModalOpen) {
 				e.preventDefault();
-				goto('/dashboard');
+				goto(`${base}/dashboard`);
 			}
 		}
 	}
@@ -200,7 +153,7 @@
 <div class="group-page">
 	<header class="group-header">
 		<div class="header-top">
-			<button class="btn btn-back" onclick={() => goto('/dashboard')}>
+			<button class="btn btn-back" onclick={() => goto(`${base}/dashboard`)}>
 				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
 				Dashboard
 			</button>

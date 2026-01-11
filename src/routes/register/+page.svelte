@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { auth } from '$lib/auth';
-	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
+	import { query } from '$lib/api';
 
 	let username = $state('');
 	let email = $state('');
@@ -64,9 +65,9 @@
 			const pendingInvite = localStorage.getItem('pendingInvite');
 			if (pendingInvite) {
 				localStorage.removeItem('pendingInvite');
-				goto(`/join/${pendingInvite}`);
+				goto(`${base}/join/${pendingInvite}`);
 			} else {
-				goto('/dashboard');
+				goto(`${base}/dashboard`);
 			}
 		}
 	}
@@ -120,7 +121,7 @@
 		</button>
 
 		<p class="switch">
-			Already have an account? <a href="/login">Login here</a>
+			Already have an account? <a href="{base}/login">Login here</a>
 		</p>
 	</form>
 </div>

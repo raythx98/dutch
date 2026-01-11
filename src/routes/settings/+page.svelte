@@ -2,6 +2,7 @@
 	import { fetchAndSyncCurrencies } from '$lib/currency';
 	import { toast } from '$lib/toast';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 
 	let loading = $state(false);
 
@@ -19,7 +20,7 @@
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
 			e.preventDefault();
-			goto('/dashboard');
+			goto(`${base}/dashboard`);
 		}
 	}
 </script>
@@ -28,7 +29,7 @@
 
 <div class="settings-page">
 	<header class="settings-header">
-		<button class="btn btn-back" onclick={() => goto('/dashboard')}>
+		<button class="btn btn-back" onclick={() => goto(`${base}/dashboard`)}>
 			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
 			Back
 		</button>
