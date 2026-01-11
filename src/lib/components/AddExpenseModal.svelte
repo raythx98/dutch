@@ -255,7 +255,6 @@
 
 		if (data) {
 			toast.success(isEditing ? 'Expense updated' : 'Expense added');
-			fetchAndSyncCurrencies(); // Sync to update frequent currencies
 			onSuccess();
 		}
 		loading = false;

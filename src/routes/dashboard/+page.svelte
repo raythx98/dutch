@@ -480,6 +480,8 @@
 		border-radius: 8px;
 		width: 100%;
 		max-width: 400px;
+		max-height: 90vh;
+		overflow-y: auto;
 		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 	}
 

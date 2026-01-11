@@ -154,7 +154,6 @@
 
 		if (data) {
 			toast.success(isEditing ? 'Repayment updated' : 'Repayment recorded');
-			fetchAndSyncCurrencies();
 			onSuccess();
 		}
 		loading = false;
