@@ -2,8 +2,13 @@
 	import { fetchAndSyncCurrencies } from '$lib/currency';
 	import { toast } from '$lib/toast';
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 
 	let loading = $state(false);
+
+	onMount(() => {
+		handleRefreshCurrencies();
+	});
 
 	async function handleRefreshCurrencies() {
 		loading = true;

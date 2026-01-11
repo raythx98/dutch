@@ -24,6 +24,7 @@
 		name: string;
 		inviteToken: string;
 		members: User[];
+		usedCurrencies: Currency[];
 	}
 
 	interface Currency {
@@ -87,6 +88,11 @@
 					members {
 						id
 						name
+					}
+					usedCurrencies {
+						id
+						code
+						symbol
 					}
 				}
 			}
@@ -392,6 +398,7 @@
 			groupId={groupId} 
 			members={group.members}
 			expense={editingExpense}
+			usedCurrencies={group.usedCurrencies}
 			onClose={() => { showAddExpense = false; editingExpense = undefined; }} 
 			onSuccess={() => { showAddExpense = false; editingExpense = undefined; fetchData(); }} 
 		/>
@@ -403,6 +410,7 @@
 			members={group.members} 
 			expense={editingExpense}
 			prefill={settlementPrefill}
+			usedCurrencies={group.usedCurrencies}
 			onClose={() => { showAddRepayment = false; editingExpense = undefined; settlementPrefill = undefined; }} 
 			onSuccess={() => { showAddRepayment = false; editingExpense = undefined; settlementPrefill = undefined; fetchData(); }} 
 		/>

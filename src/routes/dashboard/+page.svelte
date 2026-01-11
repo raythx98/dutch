@@ -41,71 +41,81 @@
 		if (data) {
 			groups = data.groups;
 			
-			// Fetch balances for each group
-			const balancesPromises = groups.map(group => 
-				query<{ expenses: { owes: any[], owed: any[] } }>(`
-					query GetGroupBalances($groupId: ID!) {
-						expenses(groupId: $groupId) {
-							owes {
-								amount
-								currency { symbol code }
-							}
-							owed {
-								amount
-								currency { symbol code }
-							}
+			if (groups.length > 0) {
+				// Construct a single batched query with aliases
+				const queryParts = groups.map(g => `
+					g_${g.id}: expenses(groupId: "${g.id}") {
+						owes {
+							amount
+							currency { symbol code }
+						}
+						owed {
+							amount
+							currency { symbol code }
 						}
 					}
-				`, { groupId: group.id }).then(res => ({ groupName: group.name, res }))
-			);
+				`);
 
-			const results = await Promise.all(balancesPromises);
-			
-			const owedList: Balance[] = [];
-			const owesList: Balance[] = [];
+				const batchedQuery = `
+					query GetAllBalances {
+						${queryParts.join('\n')}
+					}
+				`;
 
-			results.forEach(({ groupName, res }) => {
-				if (res?.expenses) {
-					// Aggregate per group and currency
-					const groupOwed = new Map<string, { amount: number, symbol: string }>();
-					const groupOwes = new Map<string, { amount: number, symbol: string }>();
+				const balancesData = await query<Record<string, { owes: any[], owed: any[] }>>(batchedQuery);
 
-					res.expenses.owed.forEach(item => {
-						const key = item.currency.code;
-						const current = groupOwed.get(key) || { amount: 0, symbol: item.currency.symbol };
-						groupOwed.set(key, { ...current, amount: current.amount + parseFloat(item.amount) });
-					});
+				if (balancesData) {
+					const owedList: Balance[] = [];
+					const owesList: Balance[] = [];
 
-					res.expenses.owes.forEach(item => {
-						const key = item.currency.code;
-						const current = groupOwes.get(key) || { amount: 0, symbol: item.currency.symbol };
-						groupOwes.set(key, { ...current, amount: current.amount + parseFloat(item.amount) });
-					});
+					groups.forEach(group => {
+						const expenses = balancesData[`g_${group.id}`];
+						if (expenses) {
+							// Aggregate per group and currency
+							const groupOwed = new Map<string, { amount: number, symbol: string }>();
+							const groupOwes = new Map<string, { amount: number, symbol: string }>();
 
-					groupOwed.forEach((val, code) => {
-						if (val.amount > 0) {
-							owedList.push({
-								groupName,
-								amount: val.amount.toFixed(2),
-								currency: { code, symbol: val.symbol }
+							expenses.owed.forEach(item => {
+								const key = item.currency.code;
+								const current = groupOwed.get(key) || { amount: 0, symbol: item.currency.symbol };
+								groupOwed.set(key, { ...current, amount: current.amount + parseFloat(item.amount) });
+							});
+
+							expenses.owes.forEach(item => {
+								const key = item.currency.code;
+								const current = groupOwes.get(key) || { amount: 0, symbol: item.currency.symbol };
+								groupOwes.set(key, { ...current, amount: current.amount + parseFloat(item.amount) });
+							});
+
+							groupOwed.forEach((val, code) => {
+								if (val.amount > 0) {
+									owedList.push({
+										groupName: group.name,
+										amount: val.amount.toFixed(2),
+										currency: { code, symbol: val.symbol }
+									});
+								}
+							});
+
+							groupOwes.forEach((val, code) => {
+								if (val.amount > 0) {
+									owesList.push({
+										groupName: group.name,
+										amount: val.amount.toFixed(2),
+										currency: { code, symbol: val.symbol }
+									});
+								}
 							});
 						}
 					});
 
-					groupOwes.forEach((val, code) => {
-						if (val.amount > 0) {
-							owesList.push({
-								groupName,
-								amount: val.amount.toFixed(2),
-								currency: { code, symbol: val.symbol }
-							});
-						}
-					});
+					totalOwed = owedList;
+					totalOwes = owesList;
 				}
-			});
-
-			totalOwed = owedList;
-			totalOwes = owesList;
+			} else {
+				totalOwed = [];
+				totalOwes = [];
+			}
 		}
 		loading = false;
 	}

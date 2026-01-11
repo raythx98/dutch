@@ -78,8 +78,7 @@ export async function loadCurrenciesFromDB() {
 		console.log('Currencies from DB (sorted):', allCurrencies);
 		currencyStore.set(allCurrencies);
 	} else {
-		console.log('DB empty, fetching from API...');
-		await fetchAndSyncCurrencies();
+		console.log('DB empty. Call fetchAndSyncCurrencies() to populate.');
 	}
 }
 

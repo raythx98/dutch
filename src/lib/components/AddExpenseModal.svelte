@@ -5,7 +5,7 @@
 	import { auth } from '$lib/auth';
 	import { onMount } from 'svelte';
 
-	let { groupId, members, expense, onClose, onSuccess } = $props();
+	let { groupId, members, expense, usedCurrencies = [], onClose, onSuccess } = $props();
 
 	interface Member {
 		id: string;
@@ -19,6 +19,20 @@
 	let description = $state<string>(expense ? expense.description : '');
 	let amount = $state<string>(expense ? expense.amount : '');
 	let currencyId = $state<string>(''); 
+
+	const displayCurrencies = $derived.by(() => {
+		const usedIds = new Set(usedCurrencies.map((c: any) => c.id));
+		const others = $currencyStore.filter((c: Currency) => !usedIds.has(c.id));
+		
+		if (usedCurrencies.length === 0) return $currencyStore;
+		if (others.length === 0) return usedCurrencies;
+
+		return [
+			...usedCurrencies,
+			{ id: 'separator', code: '──────────', symbol: '', name: 'Separator' },
+			...others
+		];
+	});
 	
 	function getLocalDate(date: Date) {
 		const offset = date.getTimezoneOffset();
@@ -76,12 +90,14 @@
 	}
 
 	$effect(() => {
-		if ($currencyStore.length > 0 && !currencyId) {
+		if (displayCurrencies.length > 0 && !currencyId) {
 			if (expense) {
-				const found = $currencyStore.find((c: Currency) => c.code === expense.currency.code);
-				if (found) currencyId = found.id;
+				const found = displayCurrencies.find((c: any) => c.code === expense.currency.code);
+				if (found && found.id !== 'separator') currencyId = found.id;
 			} else {
-				currencyId = $currencyStore[0].id;
+				// Default to first available currency (skip separator if it happens to be first, though unlikely)
+				const first = displayCurrencies.find((c: any) => c.id !== 'separator');
+				if (first) currencyId = first.id;
 			}
 		}
 	});
@@ -287,8 +303,10 @@
 					<label for="amount">Amount</label>
 					<div class="input-with-currency">
 						<select bind:value={currencyId} disabled={isViewOnly}>
-							{#each $currencyStore as curr}
-								<option value={curr.id}>{curr.code} ({curr.symbol})</option>
+							{#each displayCurrencies as curr}
+								<option value={curr.id} disabled={curr.id === 'separator'}>
+									{curr.code} {curr.symbol ? `(${curr.symbol})` : ''}
+								</option>
 							{/each}
 						</select>
 						<input 

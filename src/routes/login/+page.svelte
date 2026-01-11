@@ -3,6 +3,7 @@
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { goto } from '$app/navigation';
+	import { fetchAndSyncCurrencies } from '$lib/currency';
 
 	let email = $state('');
 	let password = $state('');
@@ -39,6 +40,9 @@
 			auth.login(data.login.token, { id: data.login.id, name: data.login.name });
 			toast.success(`Welcome back, ${data.login.name}!`);
 			
+			// Sync currencies on login
+			fetchAndSyncCurrencies();
+
 			const pendingInvite = localStorage.getItem('pendingInvite');
 			if (pendingInvite) {
 				localStorage.removeItem('pendingInvite');

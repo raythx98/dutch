@@ -5,7 +5,7 @@
 	import { auth } from '$lib/auth';
 	import { onMount } from 'svelte';
 
-	let { groupId, members, expense, prefill, onClose, onSuccess } = $props();
+	let { groupId, members, expense, prefill, usedCurrencies = [], onClose, onSuccess } = $props();
 
 	interface Member {
 		id: string;
@@ -19,6 +19,20 @@
 	let description = $state<string>(expense ? expense.description : '');
 	let amount = $state<string>(expense ? expense.amount : (prefill ? prefill.amount : ''));
 	let currencyId = $state<string>('');
+	
+	const displayCurrencies = $derived.by(() => {
+		const usedIds = new Set(usedCurrencies.map((c: any) => c.id));
+		const others = $currencyStore.filter((c: Currency) => !usedIds.has(c.id));
+		
+		if (usedCurrencies.length === 0) return $currencyStore;
+		if (others.length === 0) return usedCurrencies;
+
+		return [
+			...usedCurrencies,
+			{ id: 'separator', code: '──────────', symbol: '', name: 'Separator' },
+			...others
+		];
+	});
 	
 	function getLocalDate(date: Date) {
 		const offset = date.getTimezoneOffset();
@@ -60,15 +74,16 @@
 	});
 
 	$effect(() => {
-		if ($currencyStore.length > 0 && !currencyId) {
+		if (displayCurrencies.length > 0 && !currencyId) {
 			if (expense) {
-				const found = $currencyStore.find((c: Currency) => c.code === expense.currency.code);
-				if (found) currencyId = found.id;
+				const found = displayCurrencies.find((c: any) => c.code === expense.currency.code);
+				if (found && found.id !== 'separator') currencyId = found.id;
 			} else if (prefill) {
-				const found = $currencyStore.find((c: Currency) => c.code === prefill.currencyCode);
-				if (found) currencyId = found.id;
+				const found = displayCurrencies.find((c: any) => c.code === prefill.currencyCode);
+				if (found && found.id !== 'separator') currencyId = found.id;
 			} else {
-				currencyId = $currencyStore[0].id;
+				const first = displayCurrencies.find((c: any) => c.id !== 'separator');
+				if (first) currencyId = first.id;
 			}
 		}
 	});
@@ -186,8 +201,10 @@
 				<label for="amount">Amount</label>
 				<div class="input-with-currency">
 					<select bind:value={currencyId} disabled={isViewOnly}>
-						{#each $currencyStore as curr}
-							<option value={curr.id}>{curr.code} ({curr.symbol})</option>
+						{#each displayCurrencies as curr}
+							<option value={curr.id} disabled={curr.id === 'separator'}>
+								{curr.code} {curr.symbol ? `(${curr.symbol})` : ''}
+							</option>
 						{/each}
 					</select>
 					<input 
@@ -270,6 +287,8 @@
 		border-radius: 8px;
 		width: 100%;
 		max-width: 400px;
+		max-height: 90vh;
+		overflow-y: auto;
 		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 	}
 

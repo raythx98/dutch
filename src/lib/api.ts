@@ -36,6 +36,11 @@ export async function query<T>(
 			return null;
 		}
 
+		if (response.status === 429) {
+			toast.error('Too many requests. Please slow down.');
+			return null;
+		}
+
 		const result = await response.json();
 
 		if (result.errors) {
