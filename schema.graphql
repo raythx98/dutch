@@ -5,7 +5,7 @@ type Mutation {
     login(email: String!, password: String!): User!
     joinGroup(inviteCode: String!): Group! @auth
     addGroup(name: String!): Group! @auth
-	deleteGroup(groupId: ID!): Boolean! @auth
+    deleteGroup(groupId: ID!): Boolean! @auth
     addMember(groupId: ID!, identifier: String!): Group! @auth
     addRepayment(groupId: ID!, input: RepaymentInput!): Expense! @auth
     addExpense(groupId: ID!, input: ExpenseInput!): Expense! @auth
@@ -14,7 +14,7 @@ type Mutation {
 }
 
 type Query {
-	previewGroup(inviteCode: String!): RedactedGroup! @auth
+    previewGroup(inviteCode: String!): RedactedGroup! @auth
     groups: [Group!]! @auth
     expenses(groupId: ID!): ExpenseSummary! @auth
     currencies: [Currency!]! @auth
@@ -78,6 +78,7 @@ type Group {
     name: String!
     inviteToken: String!
     members: [User!]!
+    usedCurrencies: [Currency!]!
 }
 
 type ExpenseSummary {
