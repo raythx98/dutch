@@ -31,7 +31,6 @@ const dbPromise = typeof window !== 'undefined'
 export const currencyStore = writable<Currency[]>([]);
 
 export async function fetchAndSyncCurrencies() {
-	console.log('Fetching currencies from API...');
 	const data = await query<{ currencies: Currency[] }>(`
 		query GetCurrencies {
 			currencies {
@@ -43,10 +42,7 @@ export async function fetchAndSyncCurrencies() {
 		}
 	`);
 
-	console.log('API Response:', data);
-
 	if (data?.currencies) {
-		console.log('Saving currencies to DB and Store:', data.currencies);
 		await saveCurrenciesToDB(data.currencies);
 		currencyStore.set(data.currencies);
 		return true;
@@ -69,16 +65,12 @@ async function saveCurrenciesToDB(currencies: Currency[]) {
 
 export async function loadCurrenciesFromDB() {
 	if (!dbPromise) return;
-	console.log('Loading currencies from DB...');
 	const db = await dbPromise;
 	const allCurrencies = await db.getAll(STORE_NAME);
 	
 	if (allCurrencies.length > 0) {
 		allCurrencies.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-		console.log('Currencies from DB (sorted):', allCurrencies);
 		currencyStore.set(allCurrencies);
-	} else {
-		console.log('DB empty. Call fetchAndSyncCurrencies() to populate.');
 	}
 }
 
