@@ -34,25 +34,6 @@
 		loading = true;
 		error = null;
 
-		// Check if already joined
-		const groupsData = await query<{ groups: { id: string, inviteToken: string }[] }>(`
-			query GetGroups {
-				groups {
-					id
-					inviteToken
-				}
-			}
-		`);
-
-		if (groupsData && inviteCode) {
-			const existing = groupsData.groups.find(g => g.inviteToken === inviteCode);
-			if (existing) {
-				toast.info('You are already a member of this group.');
-				goto(`/groups/${existing.id}`);
-				return;
-			}
-		}
-		
 		const data = await query<{ previewGroup: PreviewGroup }>(`
 			query PreviewGroup($code: String!) {
 				previewGroup(inviteCode: $code) {

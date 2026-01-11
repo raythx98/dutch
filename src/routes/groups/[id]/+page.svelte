@@ -31,6 +31,7 @@
 		id: string;
 		code: string;
 		symbol: string;
+		name: string;
 	}
 
 	interface Share {
@@ -53,7 +54,7 @@
 	interface Owe {
 		user: User;
 		amount: string;
-		currency: { code: string; symbol: string };
+		currency: { code: string; symbol: string; name: string };
 	}
 
 	interface ExpenseSummary {
@@ -79,9 +80,9 @@
 	async function fetchData() {
 		loading = true;
 		
-		const groupsData = await query<{ groups: Group[] }>(`
-			query GetGroups {
-				groups {
+		const data = await query<{ group: Group, expenses: ExpenseSummary }>(`
+			query GetGroupData($groupId: ID!) {
+				group(groupId: $groupId) {
 					id
 					name
 					inviteToken
@@ -93,23 +94,9 @@
 						id
 						code
 						symbol
+						name
 					}
 				}
-			}
-		`);
-
-		if (groupsData) {
-			group = groupsData.groups.find(g => String(g.id) === String(groupId)) || null;
-		}
-
-		if (!group) {
-			toast.error('Group not found');
-			goto('/dashboard');
-			return;
-		}
-
-		const expensesData = await query<{ expenses: ExpenseSummary }>(`
-			query GetGroupExpenses($groupId: ID!) {
 				expenses(groupId: $groupId) {
 					expenses {
 						id
@@ -118,7 +105,7 @@
 						description
 						amount
 						expenseAt
-						currency { id code symbol }
+						currency { id code symbol name }
 						payers {
 							user { id name }
 							amount
@@ -131,19 +118,26 @@
 					owes {
 						user { id name }
 						amount
-						currency { code symbol }
+						currency { code symbol name }
 					}
 					owed {
 						user { id name }
 						amount
-						currency { code symbol }
+						currency { code symbol name }
 					}
 				}
 			}
 		`, { groupId });
 
-		if (expensesData) {
-			summary = expensesData.expenses;
+		if (data) {
+			group = data.group;
+			summary = data.expenses;
+		}
+
+		if (!group) {
+			toast.error('Group not found');
+			goto('/dashboard');
+			return;
 		}
 		
 		loading = false;
