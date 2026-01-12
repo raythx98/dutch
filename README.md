@@ -44,7 +44,14 @@ A modern, lightweight alternative to Splitwise for managing group expenses and s
    ```
 
 3. **Configure API:**
-   The frontend expects the backend to be running at `http://localhost:8080/query`. You can change this in `src/lib/api.ts` if needed.
+### Development
+
+The frontend expects the backend to be running at `http://localhost:8080/query`. You can change this in `src/lib/api.ts` if needed.
+
+```bash
+npm install
+npm run dev
+```
 
 4. **Run Development Server:**
    ```bash

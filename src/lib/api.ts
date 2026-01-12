@@ -4,8 +4,11 @@ import { get } from 'svelte/store';
 import { goto } from '$app/navigation';
 
 import { base } from '$app/paths';
+import { dev } from '$app/environment';
 
-const API_URL = 'http://localhost:8080/query';
+const API_URL = dev
+	? 'http://localhost:8080/query'
+	: 'https://ec2-18-136-53-169.ap-southeast-1.compute.amazonaws.com/query';
 
 export async function query<T>(
 	queryString: string,
