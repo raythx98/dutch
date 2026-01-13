@@ -8,7 +8,7 @@ import { dev } from '$app/environment';
 
 const API_URL = dev
 	? 'http://localhost:8080/query'
-	: 'https://ec2-18-136-53-169.ap-southeast-1.compute.amazonaws.com/query';
+	: 'https://161.118.239.148.sslip.io/query';
 
 export async function query<T>(
 	queryString: string,
