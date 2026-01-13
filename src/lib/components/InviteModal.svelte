@@ -136,11 +136,14 @@
 		align-items: center;
 		gap: 0.5rem;
 		margin: 1rem 0;
+		width: 100%;
 	}
 
 	.link-container input {
 		flex: 1;
-		padding: 0.625rem;
+		min-width: 0;
+		height: 2.25rem;
+		padding: 0 0.75rem;
 		border: 1px solid #d1d5db;
 		border-radius: 6px;
 		background: #f9fafb;
@@ -152,6 +155,7 @@
 		margin-top: 1.5rem;
 		display: flex;
 		align-items: center;
+		flex-wrap: wrap;
 		gap: 0.5rem;
 		font-size: 0.875rem;
 		color: #6b7280;
@@ -168,6 +172,8 @@
 		cursor: pointer;
 		transition: all 0.2s;
 		color: #374151;
+		min-width: 0;
+		max-width: 100%;
 	}
 
 	.token-btn:hover {
@@ -179,6 +185,10 @@
 		font-family: monospace;
 		font-weight: 600;
 		color: #111827;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		min-width: 0;
 	}
 
 	footer {

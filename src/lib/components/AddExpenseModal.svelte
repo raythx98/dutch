@@ -54,7 +54,54 @@
 	let expenseTime = $state<string>(expense ? getLocalTime(initialDate) : '00:00');
 	
 	let loading = $state(false);
+	let errors = $state<Record<string, string>>({});
 	let amountInput: HTMLInputElement;
+
+	function validate() {
+		const newErrors: Record<string, string> = {};
+		
+		if (!name.trim()) {
+			newErrors.name = 'Expense name is required';
+		} else if (name.length > 100) {
+			newErrors.name = 'Name too long (max 100)';
+		}
+
+		if (description.length > 1000) {
+			newErrors.description = 'Description too long (max 1000)';
+		}
+
+		const totalAmount = parseFloat(amount);
+		if (isNaN(totalAmount) || totalAmount < 0) {
+			newErrors.amount = 'Valid amount is required';
+		}
+
+		if (!currencyId) {
+			newErrors.currency = 'Currency is required';
+		}
+
+		if (!expenseDate) {
+			newErrors.date = 'Date is required';
+		}
+
+		if (!expenseTime) {
+			newErrors.time = 'Time is required';
+		}
+
+		if (Object.keys(newErrors).length === 0) {
+			const payersSum = payers.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
+			if (Math.abs(payersSum - totalAmount) > 0.01) {
+				newErrors.payers = `Sum (${payersSum.toFixed(2)}) must equal total (${totalAmount.toFixed(2)})`;
+			}
+
+			const sharesSum = shares.reduce((sum, s) => sum + parseFloat(s.amount || '0'), 0);
+			if (Math.abs(sharesSum - totalAmount) > 0.01) {
+				newErrors.shares = `Sum (${sharesSum.toFixed(2)}) must equal total (${totalAmount.toFixed(2)})`;
+			}
+		}
+
+		errors = newErrors;
+		return Object.keys(newErrors).length === 0;
+	}
 
 	const sortedMembers = $derived([...members].sort((a, b) => a.id === $auth.user?.id ? -1 : (b.id === $auth.user?.id ? 1 : 0)));
 
@@ -197,26 +244,15 @@
 		e.preventDefault();
 		if (isViewOnly) return;
 
-		const totalAmount = parseFloat(amount);
-		if (isNaN(totalAmount) || totalAmount <= 0) {
-			toast.error('Please enter a valid amount');
-			return;
-		}
-
-		const payersSum = payers.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
-		if (Math.abs(payersSum - totalAmount) > 0.01) {
-			toast.error(`Payers sum (${payersSum.toFixed(2)}) must equal total amount (${totalAmount.toFixed(2)})`);
-			return;
-		}
-
-		const sharesSum = shares.reduce((sum, s) => sum + parseFloat(s.amount || '0'), 0);
-		if (Math.abs(sharesSum - totalAmount) > 0.01) {
-			toast.error(`Shares sum (${sharesSum.toFixed(2)}) must equal total amount (${totalAmount.toFixed(2)})`);
+		if (!validate()) {
+			const firstError = Object.values(errors)[0];
+			toast.error(firstError);
 			return;
 		}
 
 		loading = true;
 
+		const totalAmount = parseFloat(amount);
 		const localDateTime = new Date(`${expenseDate}T${expenseTime}:00`);
 		const expenseAtVal = localDateTime.toISOString();
 
@@ -287,7 +323,9 @@
 					placeholder="e.g. Dinner, Groceries" 
 					required 
 					disabled={isViewOnly}
+					class:error={errors.name}
 				/>
+				{#if errors.name}<span class="error-text">{errors.name}</span>{/if}
 			</div>
 
 			<div class="form-group mb-1">
@@ -297,14 +335,17 @@
 					bind:value={description} 
 					placeholder="Add more details..." 
 					disabled={isViewOnly}
+					class:error={errors.description}
 				></textarea>
+				{#if errors.description}<span class="error-text">{errors.description}</span>{/if}
 			</div>
 
 			<div class="form-row">
 				<div class="form-group amount-group">
 					<label for="amount">Amount</label>
-					<div class="input-with-currency">
+					<div class="input-with-currency" class:error={errors.amount || errors.currency}>
 						<select bind:value={currencyId} disabled={isViewOnly}>
+							<option value="" disabled selected>Select</option>
 							{#each displayCurrencies as curr}
 								<option value={curr.id} disabled={curr.id === 'separator'}>
 									{curr.code} {curr.symbol ? `(${curr.symbol})` : ''}
@@ -323,21 +364,25 @@
 							disabled={isViewOnly}
 						/>
 					</div>
+					{#if errors.amount}<span class="error-text">{errors.amount}</span>{/if}
+					{#if errors.currency}<span class="error-text">{errors.currency}</span>{/if}
 				</div>
 				<div class="form-group date-time-group">
 					<label for="date">Date & Time</label>
 					<div class="date-time-inputs">
-						<input type="date" id="date" bind:value={expenseDate} required disabled={isViewOnly} />
-						<input type="time" id="time" bind:value={expenseTime} required disabled={isViewOnly} />
+						<input type="date" id="date" bind:value={expenseDate} required disabled={isViewOnly} class:error={errors.date} />
+						<input type="time" id="time" bind:value={expenseTime} required disabled={isViewOnly} class:error={errors.time} />
 					</div>
+					{#if errors.date}<span class="error-text">{errors.date}</span>{/if}
+					{#if errors.time}<span class="error-text">{errors.time}</span>{/if}
 				</div>
 			</div>
 
 			<div class="split-section">
 				<div class="split-header">
 					<h3>Paid by</h3>
-					{#if payersDiff}
-						<span class="hint warning">{payersDiff.text} {payersDiff.val}</span>
+					{#if payersDiff || errors.payers}
+						<span class="hint warning">{errors.payers || `${payersDiff?.text} ${payersDiff?.val}`}</span>
 					{/if}
 				</div>
 				<div class="share-list">
@@ -346,14 +391,16 @@
 							<div class="share-user">
 								<span class="name">{getName(members.find((m: any) => m.id === payer.userId))}</span>
 								{#if payer.userId === $auth.user?.id}
-									<span class="me-badge">You</span>
+									<div class="me-tag-wrapper"><span class="me-tag">You</span></div>
 								{/if}
 							</div>
-							<div class="share-input-row">
+							<div class="share-input-row no-wrap">
 								{#if !isViewOnly}
 									<button type="button" class="quick-btn" title="Pay Full" onclick={() => allocateFull(payer.userId, 'payers')}>100%</button>
+									<input type="number" step="0.01" bind:value={payer.amount} />
+								{:else}
+									<span class="amount-display">{parseFloat(payer.amount).toFixed(2)}</span>
 								{/if}
-								<input type="number" step="0.01" bind:value={payer.amount} disabled={isViewOnly} />
 							</div>
 						</div>
 					{/each}
@@ -366,8 +413,8 @@
 			<div class="split-section">
 				<div class="split-header">
 					<h3>Split among</h3>
-					{#if sharesDiff}
-						<span class="hint warning">{sharesDiff.text} {sharesDiff.val}</span>
+					{#if sharesDiff || errors.shares}
+						<span class="hint warning">{errors.shares || `${sharesDiff?.text} ${sharesDiff?.val}`}</span>
 					{/if}
 				</div>
 				<div class="share-list">
@@ -376,14 +423,16 @@
 							<div class="share-user">
 								<span class="name">{getName(members.find((m: any) => m.id === share.userId))}</span>
 								{#if share.userId === $auth.user?.id}
-									<span class="me-badge">You</span>
+									<div class="me-tag-wrapper"><span class="me-tag">You</span></div>
 								{/if}
 							</div>
-							<div class="share-input-row">
+							<div class="share-input-row no-wrap">
 								{#if !isViewOnly}
 									<button type="button" class="quick-btn" title="Full Share" onclick={() => allocateFull(share.userId, 'shares')}>100%</button>
+									<input type="number" step="0.01" bind:value={share.amount} />
+								{:else}
+									<span class="amount-display">{parseFloat(share.amount).toFixed(2)}</span>
 								{/if}
-								<input type="number" step="0.01" bind:value={share.amount} disabled={isViewOnly} />
 							</div>
 						</div>
 					{/each}
@@ -474,7 +523,7 @@
 		border: 1px solid #d1d5db;
 		border-radius: 4px;
 		width: 100%;
-		font-size: 0.95rem;
+		font-size: 1rem;
 	}
 
 	.form-group textarea {
@@ -490,30 +539,9 @@
 
 	.mb-1 { margin-bottom: 1rem; }
 
-	.input-with-currency {
-		display: flex;
-		border: 1px solid #d1d5db;
-		border-radius: 4px;
-		overflow: hidden;
+	.input-with-currency.error {
+		border-color: #ef4444;
 	}
-
-	.input-with-currency select {
-		border: none;
-		background: #f3f4f6;
-		padding: 0.5rem;
-		border-right: 1px solid #d1d5db;
-	}
-
-	.input-with-currency select:disabled { background: #f9fafb; color: #6b7280; }
-
-	.input-with-currency input {
-		border: none;
-		padding: 0.5rem;
-		flex: 1;
-		width: 100%;
-	}
-
-	.input-with-currency input:disabled { background: #f9fafb; color: #111827; }
 
 	.date-time-inputs {
 		display: flex;
@@ -564,27 +592,63 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.amount-display {
+		font-weight: 600;
+		color: #111827;
+		font-size: 1rem;
+		min-width: 40px;
+		text-align: right;
 	}
 
 	.share-user {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		align-content: flex-start;
+		flex-wrap: wrap;
+		max-height: 1.5rem;
+		overflow: hidden;
 		font-size: 0.95rem;
+		flex: 1;
+		min-width: 0;
+		line-height: 1.5rem;
+		row-gap: 2rem;
+	}
+
+	.share-user .name {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		min-width: 0;
+		flex: 0 1 auto;
+	}
+
+	.me-tag-wrapper {
+		margin-left: 0.4rem;
+		flex: 0 0 auto;
+		display: flex;
+		align-items: center;
+		height: 1.5rem;
 	}
 
 	.share-input-row {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+		flex-shrink: 0;
 	}
 
 	.share-item input {
-		width: 80px;
+		width: auto;
+		max-width: 80px;
 		padding: 0.25rem 0.5rem;
 		border: 1px solid #d1d5db;
 		border-radius: 4px;
 		text-align: right;
+		flex-shrink: 0;
+		min-width: 40px;
 	}
 
 	.share-item input:disabled {
@@ -603,6 +667,7 @@
 		font-weight: 600;
 		cursor: pointer;
 		color: #4b5563;
+		flex-shrink: 0;
 	}
 
 	.quick-btn:hover { background: #d1d5db; }
@@ -627,6 +692,21 @@
 		color: #111827;
 	}
 
+	.input-with-currency.error {
+		border-color: #ef4444;
+	}
+
+	.error-text {
+		color: #ef4444;
+		font-size: 0.75rem;
+		margin-top: 0.25rem;
+		display: block;
+	}
+
+	input.error {
+		border-color: #ef4444;
+	}
+
 	.modal-actions {
 		display: flex;
 		justify-content: flex-end;
@@ -635,12 +715,38 @@
 		margin-top: 2rem;
 	}
 
-	.me-badge {
-		background: #e0f2fe;
-		color: #0369a1;
-		font-size: 0.75rem;
-		padding: 0.1rem 0.4rem;
-		border-radius: 4px;
-		font-weight: 600;
+	@media (max-width: 640px) {
+		.modal-content {
+			width: 90%;
+			padding: 1.5rem;
+		}
+
+		.form-row {
+			grid-template-columns: 1fr;
+		}
+
+		.share-item {
+			gap: 0.5rem;
+		}
+
+		.share-input-row {
+			flex-shrink: 0;
+			flex-wrap: nowrap;
+		}
+
+		.share-item input {
+			width: auto;
+			max-width: 80px;
+			min-width: 40px;
+			flex-shrink: 0;
+		}
+
+		.modal-actions {
+			flex-direction: column-reverse;
+		}
+
+		.modal-actions button {
+			width: 100%;
+		}
 	}
 </style>

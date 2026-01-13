@@ -20,9 +20,32 @@
 	let newGroupName = $state('');
 	let joinCode = $state('');
 	let creating = $state(false);
+	let errors = $state<Record<string, string>>({});
 
 	let totalOwed = $state<Balance[]>([]);
 	let totalOwes = $state<Balance[]>([]);
+
+	function validateCreateGroup() {
+		const newErrors: Record<string, string> = {};
+		if (!newGroupName.trim()) {
+			newErrors.groupName = 'Group name is required';
+		} else if (newGroupName.length < 3 || newGroupName.length > 20) {
+			newErrors.groupName = 'Group name must be between 3 and 20 characters';
+		}
+		errors = newErrors;
+		return Object.keys(newErrors).length === 0;
+	}
+
+	function validateJoinGroup() {
+		const newErrors: Record<string, string> = {};
+		if (!joinCode.trim()) {
+			newErrors.joinCode = 'Invite code is required';
+		} else if (joinCode.length < 3 || joinCode.length > 20) {
+			newErrors.joinCode = 'Invite code must be between 3 and 20 characters';
+		}
+		errors = newErrors;
+		return Object.keys(newErrors).length === 0;
+	}
 
 	async function fetchGroupsAndBalances() {
 		loading = true;
@@ -119,7 +142,7 @@
 
 	async function handleCreateGroup(e: Event) {
 		e.preventDefault();
-		if (!newGroupName.trim()) return;
+		if (!validateCreateGroup()) return;
 
 		creating = true;
 		const data = await query<{ addGroup: Group }>(
@@ -145,7 +168,7 @@
 
 	function handleJoinGroup(e: Event) {
 		e.preventDefault();
-		if (!joinCode.trim()) return;
+		if (!validateJoinGroup()) return;
 		goto(`${base}/join/${joinCode}`);
 	}
 
@@ -174,8 +197,14 @@
 		<div class="logo">Dutch<span>.</span></div>
 		<div class="user-info">
 			<span class="welcome-text">Hi, <strong>{$auth.user?.name}</strong></span>
-			<button class="btn btn-secondary" onclick={() => goto(`${base}/settings`)}>Settings</button>
-			<button class="btn btn-secondary" onclick={logout}>Logout</button>
+			<div class="btn-group">
+				<button class="btn btn-secondary btn-icon" onclick={() => goto(`${base}/settings`)} title="Settings">
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+				</button>
+				<button class="btn btn-secondary btn-icon" onclick={logout} title="Logout">
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+				</button>
+			</div>
 		</div>
 	</header>
 
@@ -187,9 +216,9 @@
 					<p class="empty-msg">Nobody owes you anything.</p>
 				{:else}
 					{#each totalOwed as balance}
-						<div class="balance-item">
-							<span class="group-label">{balance.groupName}</span>
-							<span class="amount positive">
+						<div class="balance-row">
+							<span class="label">{balance.groupName}</span>
+							<span class="value positive">
 								{balance.currency.symbol}{balance.amount} {balance.currency.code}
 							</span>
 						</div>
@@ -202,9 +231,9 @@
 					<p class="empty-msg">You don't owe anything.</p>
 				{:else}
 					{#each totalOwes as balance}
-						<div class="balance-item">
-							<span class="group-label">{balance.groupName}</span>
-							<span class="amount negative">
+						<div class="balance-row">
+							<span class="label">{balance.groupName}</span>
+							<span class="value negative">
 								{balance.currency.symbol}{balance.amount} {balance.currency.code}
 							</span>
 						</div>
@@ -256,7 +285,9 @@
 							placeholder="e.g. Summer Trip 2025" 
 							required 
 							disabled={creating}
+							class:error={errors.groupName}
 						/>
+						{#if errors.groupName}<span class="error-text">{errors.groupName}</span>{/if}
 					</div>
 					<div class="modal-actions">
 						<button type="button" class="btn btn-secondary" onclick={() => showCreateModal = false}>Cancel</button>
@@ -282,7 +313,9 @@
 							bind:value={joinCode} 
 							placeholder="Enter code" 
 							required 
+							class:error={errors.joinCode}
 						/>
+						{#if errors.joinCode}<span class="error-text">{errors.joinCode}</span>{/if}
 					</div>
 					<div class="modal-actions">
 						<button type="button" class="btn btn-secondary" onclick={() => showJoinModal = false}>Cancel</button>
@@ -309,6 +342,8 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		flex-wrap: wrap;
+		gap: 1rem;
 		margin-bottom: 2rem;
 		padding-bottom: 1.5rem;
 		border-bottom: 1px solid #e5e7eb;
@@ -317,13 +352,21 @@
 	.user-info {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		flex: 1;
 	}
 
 	.welcome-text {
-		margin-right: 0.5rem;
 		color: #4b5563;
 		font-size: 1.1rem;
+		white-space: nowrap;
+		margin-right: 0.25rem;
+	}
+
+	.btn-group {
+		display: flex;
+		gap: 0.5rem;
 	}
 
 	.stats-grid {
@@ -331,60 +374,6 @@
 		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 		gap: 1.5rem;
 		margin-bottom: 3rem;
-	}
-
-	.card {
-		background: white;
-		padding: 1.5rem;
-		border-radius: 8px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		border: 1px solid #e5e7eb;
-	}
-
-	.card h3 {
-		margin: 0 0 0.5rem 0;
-		font-size: 0.875rem;
-		color: #6b7280;
-		text-transform: uppercase;
-		letter-spacing: 0.025em;
-	}
-
-	.amount {
-		font-size: 1rem;
-		font-weight: 700;
-		margin: 0;
-	}
-
-	.empty-msg {
-		color: #9ca3af;
-		font-size: 0.875rem;
-		margin: 0;
-	}
-
-	.balance-item {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 0.5rem 0;
-		border-bottom: 1px solid #f3f4f6;
-	}
-
-	.balance-item:last-child {
-		border-bottom: none;
-	}
-
-	.group-label {
-		color: #6b7280;
-		font-weight: 700;
-		font-size: 1rem;
-	}
-
-	.positive {
-		color: #059669;
-	}
-
-	.negative {
-		color: #dc2626;
 	}
 
 	.groups-section {
@@ -410,7 +399,7 @@
 
 	.groups-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
 		gap: 1rem;
 	}
 
@@ -437,6 +426,11 @@
 		font-weight: 600;
 		font-size: 1.1rem;
 		color: #111827;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		flex: 1;
+		margin-right: 0.5rem;
 	}
 
 	.chevron {
@@ -506,9 +500,67 @@
 		box-sizing: border-box;
 	}
 
+	.form-group input.error {
+		border-color: #ef4444;
+	}
+
+	.error-text {
+		color: #ef4444;
+		font-size: 0.75rem;
+		margin-top: 0.25rem;
+		display: block;
+	}
+
 	.modal-actions {
 		display: flex;
 		justify-content: flex-end;
 		gap: 1rem;
+	}
+
+	/* Responsive Adjustments */
+	@media (max-width: 640px) {
+		.dashboard {
+			padding: 1rem;
+		}
+
+		.user-info {
+			width: 100%;
+			flex-direction: row;
+			justify-content: flex-end;
+			align-items: center;
+			gap: 0.5rem;
+		}
+
+		.welcome-text {
+			margin: 0;
+			font-size: 1.1rem;
+		}
+
+		.stats-grid {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.groups-grid {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.section-header {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 1rem;
+		}
+
+		.header-actions {
+			width: 100%;
+		}
+
+		.header-actions .btn {
+			flex: 1;
+		}
+
+		.modal-content {
+			width: 90%;
+			padding: 1.5rem;
+		}
 	}
 </style>

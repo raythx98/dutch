@@ -6,11 +6,23 @@
 
 	let identifier = $state('');
 	let loading = $state(false);
+	let errors = $state<Record<string, string>>({});
 	let inputRef: HTMLInputElement;
+
+	function validate() {
+		const newErrors: Record<string, string> = {};
+		if (!identifier.trim()) {
+			newErrors.identifier = 'Username or email is required';
+		} else if (identifier.length < 3 || identifier.length > 255) {
+			newErrors.identifier = 'Must be between 3 and 255 characters';
+		}
+		errors = newErrors;
+		return Object.keys(newErrors).length === 0;
+	}
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
-		if (!identifier.trim()) return;
+		if (!validate()) return;
 
 		loading = true;
 		const data = await query<{ addMember: any }>(`
@@ -57,7 +69,9 @@
 					placeholder="Enter username or email" 
 					required 
 					disabled={loading}
+					class:error={errors.identifier}
 				/>
+				{#if errors.identifier}<span class="error-text">{errors.identifier}</span>{/if}
 			</div>
 
 			<div class="modal-actions">
@@ -129,6 +143,18 @@
 		border: 1px solid #d1d5db;
 		border-radius: 4px;
 		box-sizing: border-box;
+		font-size: 1rem;
+	}
+
+	.form-group input.error {
+		border-color: #ef4444;
+	}
+
+	.error-text {
+		color: #ef4444;
+		font-size: 0.75rem;
+		margin-top: 0.25rem;
+		display: block;
 	}
 
 	.modal-actions {
@@ -136,5 +162,20 @@
 		justify-content: flex-end;
 		align-items: center;
 		gap: 1rem;
+	}
+
+	@media (max-width: 480px) {
+		.modal-content {
+			width: 90%;
+			padding: 1.5rem;
+		}
+
+		.modal-actions {
+			flex-direction: column-reverse;
+		}
+
+		.modal-actions button {
+			width: 100%;
+		}
 	}
 </style>

@@ -166,6 +166,8 @@
 	.warning-box p {
 		margin: 0;
 		line-height: 1.4;
+		min-width: 0;
+		overflow-wrap: break-word;
 	}
 
 	.warning-box .emoji {
@@ -246,15 +248,6 @@
 		text-transform: uppercase;
 	}
 
-	.me-tag {
-		background: #e0f2fe;
-		color: #0369a1;
-		font-size: 0.75rem;
-		padding: 0.1rem 0.4rem;
-		border-radius: 4px;
-		font-weight: 600;
-	}
-
 	.more-tag {
 		display: inline-flex;
 		align-items: center;
@@ -275,15 +268,5 @@
 		display: flex;
 		justify-content: flex-end;
 		gap: 0.75rem;
-	}
-
-	.btn-danger {
-		background: #dc2626;
-		color: white;
-	}
-
-	.btn-danger:disabled {
-		background: #f87171;
-		cursor: not-allowed;
 	}
 </style>

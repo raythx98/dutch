@@ -4,10 +4,12 @@
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { query } from '$lib/api';
+	import { fetchAndSyncCurrencies } from '$lib/currency';
 
 	let email = $state('');
 	let password = $state('');
 	let loading = $state(false);
+	let errors = $state<Record<string, string>>({});
 
 	const LOGIN_MUTATION = `
         mutation Login($email: String!, $password: String!) {
@@ -19,12 +21,33 @@
         }
     `;
 
+	function validate() {
+		const newErrors: Record<string, string> = {};
+
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!email) {
+			newErrors.email = 'Email is required';
+		} else if (!emailRegex.test(email)) {
+			newErrors.email = 'Invalid email address';
+		} else if (email.length > 255) {
+			newErrors.email = 'Email too long (max 255)';
+		}
+
+		if (!password) {
+			newErrors.password = 'Password is required';
+		} else if (password.length < 6) {
+			newErrors.password = 'Password must be at least 6 characters';
+		} else if (password.length > 30) {
+			newErrors.password = 'Password too long (max 30)';
+		}
+
+		errors = newErrors;
+		return Object.keys(newErrors).length === 0;
+	}
+
 	async function handleLogin(e: Event) {
 		e.preventDefault();
-		if (!email || !password) {
-			toast.error('Please fill in all fields');
-			return;
-		}
+		if (!validate()) return;
 
 		loading = true;
 		const data = await query<{ login: { id: string; name: string; token: string } }>(
@@ -60,12 +83,28 @@
 
 		<div class="field">
 			<label for="email">Email</label>
-			<input type="email" id="email" bind:value={email} required placeholder="email@example.com" />
+			<input
+				type="email"
+				id="email"
+				bind:value={email}
+				required
+				placeholder="email@example.com"
+				class:error={errors.email}
+			/>
+			{#if errors.email}<span class="error-text">{errors.email}</span>{/if}
 		</div>
 
 		<div class="field">
 			<label for="password">Password</label>
-			<input type="password" id="password" bind:value={password} required placeholder="••••••••" />
+			<input
+				type="password"
+				id="password"
+				bind:value={password}
+				required
+				placeholder="••••••••"
+				class:error={errors.password}
+			/>
+			{#if errors.password}<span class="error-text">{errors.password}</span>{/if}
 		</div>
 
 		<button type="submit" disabled={loading}>
@@ -94,6 +133,16 @@
 		max-width: 400px;
 	}
 
+	@media (max-width: 480px) {
+		.auth-container {
+			padding: 1rem;
+		}
+		.auth-form {
+			padding: 1.5rem;
+			width: 90%;
+		}
+	}
+
 	h1 {
 		margin-top: 0;
 		margin-bottom: 1.5rem;
@@ -118,6 +167,17 @@
 		border: 1px solid #d1d5db;
 		border-radius: 4px;
 		font-size: 1rem;
+	}
+
+	input.error {
+		border-color: #ef4444;
+	}
+
+	.error-text {
+		color: #ef4444;
+		font-size: 0.75rem;
+		margin-top: 0.25rem;
+		display: block;
 	}
 
 	button {

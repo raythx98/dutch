@@ -57,7 +57,46 @@
 	let payerId = $state<string>('');
 	let recipientId = $state<string>('');
 	let loading = $state(false);
+	let errors = $state<Record<string, string>>({});
 	let amountInput: HTMLInputElement;
+
+	function validate() {
+		const newErrors: Record<string, string> = {};
+		
+		if (!name.trim()) {
+			newErrors.name = 'Title is required';
+		} else if (name.length > 100) {
+			newErrors.name = 'Title too long (max 100)';
+		}
+
+		if (description.length > 1000) {
+			newErrors.description = 'Description too long (max 1000)';
+		}
+
+		const totalAmount = parseFloat(amount);
+		if (isNaN(totalAmount) || totalAmount < 0) {
+			newErrors.amount = 'Valid amount is required';
+		}
+
+		if (!currencyId) {
+			newErrors.currency = 'Currency is required';
+		}
+
+		if (!expenseDate) {
+			newErrors.date = 'Date is required';
+		}
+
+		if (!expenseTime) {
+			newErrors.time = 'Time is required';
+		}
+
+		if (payerId === recipientId) {
+			newErrors.recipient = 'Payer and recipient must be different';
+		}
+
+		errors = newErrors;
+		return Object.keys(newErrors).length === 0;
+	}
 
 	const sortedMembers = $derived([...members].sort((a, b) => a.id === $auth.user?.id ? -1 : (b.id === $auth.user?.id ? 1 : 0)));
 
@@ -100,19 +139,15 @@
 		e.preventDefault();
 		if (isViewOnly) return;
 
-		const totalAmount = parseFloat(amount);
-		if (isNaN(totalAmount) || totalAmount <= 0) {
-			toast.error('Please enter a valid amount');
-			return;
-		}
-
-		if (payerId === recipientId) {
-			toast.error('Payer and Recipient cannot be the same person');
+		if (!validate()) {
+			const firstError = Object.values(errors)[0];
+			toast.error(firstError);
 			return;
 		}
 
 		loading = true;
 
+		const totalAmount = parseFloat(amount);
 		// Convert local date/time to UTC
 		const localDateTime = new Date(`${expenseDate}T${expenseTime}:00`);
 		const expenseAt = localDateTime.toISOString();
@@ -187,7 +222,9 @@
 					placeholder="Repayment" 
 					required 
 					disabled={isViewOnly}
+					class:error={errors.name}
 				/>
+				{#if errors.name}<span class="error-text">{errors.name}</span>{/if}
 			</div>
 
 			<div class="form-group">
@@ -197,13 +234,16 @@
 					bind:value={description} 
 					placeholder="Add more details..." 
 					disabled={isViewOnly}
+					class:error={errors.description}
 				></textarea>
+				{#if errors.description}<span class="error-text">{errors.description}</span>{/if}
 			</div>
 
 			<div class="form-group">
 				<label for="amount">Amount</label>
-				<div class="input-with-currency">
+				<div class="input-with-currency" class:error={errors.amount || errors.currency}>
 					<select bind:value={currencyId} disabled={isViewOnly}>
+						<option value="" disabled selected>Select</option>
 						{#each displayCurrencies as curr}
 							<option value={curr.id} disabled={curr.id === 'separator'}>
 								{curr.code} {curr.symbol ? `(${curr.symbol})` : ''}
@@ -221,16 +261,20 @@
 						disabled={isViewOnly}
 					/>
 				</div>
+				{#if errors.amount}<span class="error-text">{errors.amount}</span>{/if}
+				{#if errors.currency}<span class="error-text">{errors.currency}</span>{/if}
 			</div>
 
 			<div class="form-row compact-row">
 				<div class="form-group">
 					<label for="date">Date</label>
-					<input type="date" id="date" bind:value={expenseDate} required disabled={isViewOnly} />
+					<input type="date" id="date" bind:value={expenseDate} required disabled={isViewOnly} class:error={errors.date} />
+					{#if errors.date}<span class="error-text">{errors.date}</span>{/if}
 				</div>
 				<div class="form-group">
 					<label for="time">Time</label>
-					<input type="time" id="time" bind:value={expenseTime} required disabled={isViewOnly} />
+					<input type="time" id="time" bind:value={expenseTime} required disabled={isViewOnly} class:error={errors.time} />
+					{#if errors.time}<span class="error-text">{errors.time}</span>{/if}
 				</div>
 			</div>
 
@@ -247,13 +291,14 @@
 
 			<div class="form-group large-select">
 				<label for="creditor">To whom?</label>
-				<select id="creditor" bind:value={recipientId} required disabled={isViewOnly}>
+				<select id="creditor" bind:value={recipientId} required disabled={isViewOnly} class:error={errors.recipient}>
 					{#each sortedMembers as member}
 						<option value={member.id}>
 							{member.name} {member.id === $auth.user?.id ? '(Me)' : ''}
 						</option>
 					{/each}
 				</select>
+				{#if errors.recipient}<span class="error-text">{errors.recipient}</span>{/if}
 			</div>
 
 			<div class="modal-actions">
@@ -342,7 +387,7 @@
 		border: 1px solid #d1d5db;
 		border-radius: 4px;
 		width: 100%;
-		font-size: 0.95rem;
+		font-size: 1rem;
 	}
 
 	.form-group textarea {
@@ -366,33 +411,19 @@
 		padding: 0.75rem;
 	}
 
-	.input-with-currency {
-		display: flex;
-		border: 1px solid #d1d5db;
-		border-radius: 4px;
-		overflow: hidden;
+	.input-with-currency.error {
+		border-color: #ef4444;
 	}
 
-	.input-with-currency select:disabled { background: #f9fafb; color: #6b7280; }
-
-	.input-with-currency input {
-		border: none;
-		padding: 0.5rem;
-		flex: 1;
-		width: 100%;
+	.error-text {
+		color: #ef4444;
+		font-size: 0.75rem;
+		margin-top: 0.25rem;
+		display: block;
 	}
 
-	.input-with-currency input:disabled { background: #f9fafb; color: #111827; }
-
-	input[type="date"], input[type="time"], select {
-		padding: 0.5rem;
-		border: 1px solid #d1d5db;
-		border-radius: 4px;
-	}
-
-	input[type="date"]:disabled, input[type="time"]:disabled, select:disabled {
-		background: #f9fafb;
-		color: #111827;
+	select.error, input.error {
+		border-color: #ef4444;
 	}
 
 	.modal-actions {
@@ -401,5 +432,24 @@
 		align-items: center;
 		gap: 1rem;
 		margin-top: 2rem;
+	}
+
+	@media (max-width: 480px) {
+		.modal-content {
+			width: 90%;
+			padding: 1.5rem;
+		}
+
+		.form-row {
+			grid-template-columns: 1fr;
+		}
+
+		.modal-actions {
+			flex-direction: column-reverse;
+		}
+
+		.modal-actions button {
+			width: 100%;
+		}
 	}
 </style>

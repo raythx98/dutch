@@ -153,12 +153,19 @@
 <div class="group-page">
 	<header class="group-header">
 		<div class="header-top">
-			<button class="btn btn-back" onclick={() => goto(`${base}/dashboard`)}>
-				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-				Dashboard
-			</button>
+			<div class="title-group">
+				<button class="btn btn-back" onclick={() => goto(`${base}/dashboard`)}>
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+					<span class="back-text">Dashboard</span>
+				</button>
+				{#if group}
+					<h1 class="group-title">{group.name}</h1>
+				{:else}
+					<h1 class="group-title">Loading...</h1>
+				{/if}
+			</div>
+
 			{#if group}
-				<h1 class="group-title">{group.name}</h1>
 				<div class="header-actions">
 					<button class="btn btn-secondary btn-icon" onclick={() => showInvite = true} title="Share Group">
 						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
@@ -168,20 +175,18 @@
 					</button>
 					<button class="btn btn-primary add-member-top" onclick={() => showAddMember = true}>Add Member</button>
 				</div>
-			{:else}
-				<h1 class="group-title">Loading...</h1>
 			{/if}
 		</div>
 
 		{#if summary}
 			<section class="balance-summary">
-				<div class="balance-card owed">
+				<div class="card owed">
 					<h3>You are owed</h3>
 					{#each summary.owed as o}
-						<div class="owe-item">
-							<span class="user">{o.user.name}</span>
+						<div class="balance-row">
+							<span class="label">{o.user.name}</span>
 							<div class="owe-actions">
-								<span class="amount positive">
+								<span class="value positive">
 									{o.currency.symbol}{o.amount} {o.currency.code}
 								</span>
 								<button class="btn btn-xs btn-outline" onclick={() => openSettlement(o.user.id, $auth.user?.id || '', o.amount, o.currency.code)}>Settle</button>
@@ -191,13 +196,13 @@
 						<p class="empty-msg">Nobody owes you anything.</p>
 					{/each}
 				</div>
-				<div class="balance-card owes">
+				<div class="card owes">
 					<h3>You owe</h3>
 					{#each summary.owes as o}
-						<div class="owe-item">
-							<span class="user">{o.user.name}</span>
+						<div class="balance-row">
+							<span class="label">{o.user.name}</span>
 							<div class="owe-actions">
-								<span class="amount negative">
+								<span class="value negative">
 									{o.currency.symbol}{o.amount} {o.currency.code}
 								</span>
 								<button class="btn btn-xs btn-outline" onclick={() => openSettlement($auth.user?.id || '', o.user.id, o.amount, o.currency.code)}>Settle</button>
@@ -241,64 +246,65 @@
 				<div class="expense-list">
 					{#each summary?.expenses || [] as expense}
 						{@const balance = getBalanceForExpense(expense)}
-						<div 
-							class="expense-item" 
-							class:repayment-item={expense.type === 'Repayment'}
-							class:generic-item={expense.type === 'Generic'}
-							onclick={() => openEditExpense(expense)}
-							role="button"
-							tabindex="0"
-							onkeydown={e => e.key === 'Enter' && openEditExpense(expense)}
-						>
-							<div class="expense-date">
-								<span class="month">{new Date(expense.expenseAt).toLocaleDateString(undefined, {month: 'short'})}</span>
-								<span class="day">{new Date(expense.expenseAt).getDate()}</span>
-							</div>
-							
-							<div class="expense-icon-container">
-								{#if expense.type === 'Repayment'}
-									<div class="expense-icon repayment-icon">
-										<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-									</div>
-								{:else}
-									<div class="expense-icon generic-icon">
-										<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/><path d="M16 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/></svg>
-									</div>
-								{/if}
-							</div>
-
-							<div class="expense-info">
-								<div class="expense-name">{expense.name || expense.type}</div>
-								{#if expense.description}
-									<div class="expense-desc">{expense.description}</div>
-								{/if}
-								<div class="expense-details">
+						<div class="expense-item-container">
+							<div 
+								class="expense-item" 
+								class:repayment-item={expense.type === 'Repayment'}
+								class:generic-item={expense.type === 'Generic'}
+								onclick={() => openEditExpense(expense)}
+								role="button"
+								tabindex="0"
+								onkeydown={e => e.key === 'Enter' && openEditExpense(expense)}
+							>
+								<div class="expense-date">
+									<span class="month">{new Date(expense.expenseAt).toLocaleDateString(undefined, {month: 'short'})}</span>
+									<span class="day">{new Date(expense.expenseAt).getDate()}</span>
+								</div>
+								
+								<div class="expense-icon-container">
 									{#if expense.type === 'Repayment'}
-										{@const payer = expense.payers[0]?.user.name === $auth.user?.name ? 'You' : expense.payers[0]?.user.name}
-										{@const recipient = expense.shares[0]?.user.name === $auth.user?.name ? 'you' : expense.shares[0]?.user.name}
-										<span>{payer} paid {recipient}</span>
+										<div class="expense-icon repayment-icon">
+											<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+										</div>
 									{:else}
-										<span>Paid by {expense.payers[0]?.user.name === $auth.user?.name ? 'You' : expense.payers[0]?.user.name}</span>
-										<span class="dot">&bull;</span>
-										<span>Split among {expense.shares.length} people</span>
+										<div class="expense-icon generic-icon">
+											<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/><path d="M16 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/></svg>
+										</div>
 									{/if}
 								</div>
-							</div>
 
-							{#if balance && expense.type !== 'Repayment'}
-								<div class="expense-balance" class:positive={balance.isOwed} class:negative={!balance.isOwed}>
-									<span class="label">{balance.isOwed ? 'you lent' : 'you borrowed'}</span>
-									<span class="val">
-										{expense.currency.symbol}{balance.amount} {expense.currency.code}
-									</span>
+								<div class="expense-info">
+									<div class="expense-name">{expense.name || expense.type}</div>
+									<div class="expense-details">
+										{#if expense.type === 'Repayment'}
+											{@const payer = expense.payers[0]?.user.name === $auth.user?.name ? 'You' : expense.payers[0]?.user.name}
+											{@const recipient = expense.shares[0]?.user.name === $auth.user?.name ? 'you' : expense.shares[0]?.user.name}
+											<span class="paid-by">{payer} paid {recipient}</span>
+										{:else}
+											<span class="paid-by">Paid by {expense.payers[0]?.user.name === $auth.user?.name ? 'You' : expense.payers[0]?.user.name}</span>
+											<span class="split-info">
+												<span class="dot">&bull;</span>
+												<span>Split among {expense.shares.length} people</span>
+											</span>
+										{/if}
+									</div>
 								</div>
-							{/if}
 
-							<div class="expense-amount">
-								{expense.currency.symbol}{expense.amount} {expense.currency.code}
+								{#if balance && expense.type !== 'Repayment'}
+									<div class="expense-balance" class:positive={balance.isOwed} class:negative={!balance.isOwed}>
+										<span class="label">{balance.isOwed ? 'YOU LENT' : 'BORROWED'}</span>
+										<span class="val">
+											{expense.currency.symbol}{balance.amount} {expense.currency.code}
+										</span>
+									</div>
+								{/if}
+
+								<div class="expense-amount">
+									{expense.currency.symbol}{expense.amount} {expense.currency.code}
+								</div>
+
+								<button class="delete-btn" onclick={(e) => handleDeleteExpense(e, expense)} title="Delete">&times;</button>
 							</div>
-
-							<button class="delete-btn" onclick={(e) => handleDeleteExpense(e, expense)} title="Delete">&times;</button>
 						</div>
 					{:else}
 						<div class="empty-state">
@@ -321,7 +327,7 @@
 								<span class="name">
 									{member.name} 
 									{#if member.id === $auth.user?.id}
-										<strong class="me-label">You</strong>
+										<strong class="me-tag" style="margin-left: 0.5rem">You</strong>
 									{/if}
 								</span>
 							</li>
@@ -407,35 +413,39 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 1.5rem;
+		flex-wrap: wrap;
+		gap: 1rem;
 		margin-bottom: 2rem;
 	}
 
+	.title-group {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-width: 0;
+		max-width: 100%;
+	}
+
 	.group-title {
-		flex: 1;
 		margin: 0;
 		font-size: 1.25rem;
 		line-height: 1.2;
 		font-weight: 700;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.header-actions {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-	}
-
-	.header-actions .btn {
-		height: 2.25rem;
-		padding: 0 1rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
+		flex-shrink: 0;
+		margin-left: auto;
 	}
 
 	.header-actions .btn-icon {
 		padding: 0;
-		width: 2.25rem;
 	}
 
 	.btn-danger-outline {
@@ -456,67 +466,14 @@
 		margin-bottom: 2rem;
 	}
 
-	.balance-card {
-		background: white;
-		padding: 1.25rem;
-		border-radius: 8px;
-		border: 1px solid #e5e7eb;
-		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-	}
-
-	.balance-card h3 {
-		margin-top: 0;
-		font-size: 0.875rem;
-		text-transform: uppercase;
-		color: #6b7280;
-		letter-spacing: 0.025em;
-		margin-bottom: 1rem;
-	}
-
-	.owe-item {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 0.5rem 0;
-		border-bottom: 1px solid #f3f4f6;
-		gap: 0.5rem;
-	}
-
-	.owe-item:last-child {
-		border-bottom: none;
-	}
-
 	.owe-actions {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.user {
-		color: #6b7280;
-		font-weight: 700;
-		font-size: 1rem;
-	}
-
-	.btn-xs {
-		padding: 0.25rem 0.6rem;
-		font-size: 0.75rem;
-		height: auto;
-		line-height: 1;
-	}
-
-	.amount {
-		font-weight: 700;
-		font-size: 1rem;
-	}
-
-	.positive { color: #059669; }
-	.negative { color: #dc2626; }
-
-	.empty-msg {
-		color: #9ca3af;
-		font-size: 0.875rem;
-		margin: 0;
+		gap: 0.5rem;
+		flex: 0 1 auto;
+		min-width: 0;
+		max-width: 100%;
+		justify-content: flex-end;
 	}
 
 	.tabs {
@@ -568,23 +525,29 @@
 		overflow: hidden;
 	}
 
+	.expense-item-container {
+		container-type: inline-size;
+		width: 100%;
+		border-bottom: 1px solid #f3f4f6;
+	}
+
+	.expense-item-container:last-child {
+		border-bottom: none;
+	}
+
 	.expense-item {
 		display: flex;
 		align-items: center;
 		padding: 1rem;
-		border-bottom: 1px solid #f3f4f6;
-		gap: 1rem;
+		gap: 0.75rem;
 		cursor: pointer;
 		transition: background-color 0.2s;
 		border-left: 4px solid transparent;
+		min-width: 0;
 	}
 
 	.expense-item:hover {
 		background-color: #f9fafb;
-	}
-
-	.expense-item:last-child {
-		border-bottom: none;
 	}
 
 	.expense-date {
@@ -594,6 +557,7 @@
 		min-width: 45px;
 		color: #6b7280;
 		font-size: 0.75rem;
+		flex-shrink: 0;
 	}
 
 	.expense-date .day {
@@ -606,6 +570,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		flex-shrink: 0;
 	}
 
 	.expense-icon {
@@ -632,6 +597,8 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
+		min-width: 0;
+		overflow: hidden;
 	}
 
 	.expense-name {
@@ -639,30 +606,40 @@
 		color: #111827;
 		margin-bottom: 0.125rem;
 		font-size: 0.95rem;
-	}
-
-	.expense-desc {
-		font-size: 0.8125rem;
-		color: #6b7280;
-		margin-bottom: 0.25rem;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		width: 100%;
 	}
 
 	.expense-details {
 		font-size: 0.8125rem;
 		color: #6b7280;
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		width: 100%;
+		display: block;
 	}
 
-	.dot { color: #d1d5db; }
+	.paid-by {
+		display: inline;
+	}
+
+	.split-info {
+		display: inline;
+	}
+
+	.dot { color: #d1d5db; margin: 0 0.25rem; }
 
 	.expense-balance {
 		display: flex;
 		flex-direction: column;
 		align-items: flex-end;
 		font-size: 0.75rem;
-		min-width: 90px;
+		min-width: 0;
+		flex-shrink: 1;
+		margin-left: 0.5rem;
 	}
 
 	.expense-balance .label {
@@ -670,9 +647,16 @@
 		text-transform: uppercase;
 		font-size: 0.65rem;
 		letter-spacing: 0.025em;
+		white-space: nowrap;
 	}
 
-	.expense-balance .val { font-weight: 600; }
+	.expense-balance .val { 
+		font-weight: 600; 
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 100%;
+	}
 	.expense-balance.positive .val { color: #059669; }
 	.expense-balance.negative .val { color: #dc2626; }
 
@@ -681,6 +665,8 @@
 		font-size: 1.05rem;
 		min-width: 80px;
 		text-align: right;
+		flex-shrink: 0;
+		margin-left: 0.5rem;
 	}
 
 	.repayment-item {
@@ -699,10 +685,24 @@
 		font-size: 1.5rem;
 		cursor: pointer;
 		padding: 0.5rem;
+		flex-shrink: 0;
 		margin-left: 0.5rem;
 	}
 
 	.delete-btn:hover { color: #ef4444; }
+
+	/* Column Disappearing logic based on container width */
+	@container (max-width: 700px) {
+		.split-info { display: none; }
+	}
+
+	@container (max-width: 570px) {
+		.expense-icon-container { display: none; }
+	}
+
+	@container (max-width: 530px) {
+		.expense-amount { display: none; }
+	}
 
 	.member-list {
 		list-style: none;
@@ -721,30 +721,62 @@
 		border-bottom: none;
 	}
 
-	.me-label {
-		background: #e0f2fe;
-		color: #0369a1;
-		font-size: 0.75rem;
-		padding: 0.1rem 0.4rem;
-		border-radius: 4px;
-		font-weight: 600;
-		margin-left: 0.5rem;
-	}
-
 	.empty-state {
 		padding: 3rem;
 		text-align: center;
 		color: #9ca3af;
 	}
 
-	.btn-outline {
-		background: transparent;
-		border: 1px solid #d1d5db;
-		color: #374151;
+	/* Mobile Responsive Styles */
+	@media (max-width: 640px) {
+		.group-page {
+			padding: 1rem;
+		}
+
+		.back-text {
+			display: none;
+		}
+
+		.header-top {
+			margin-bottom: 1.5rem;
+		}
+
+		.add-member-top {
+			flex: 1;
+		}
+
+		.balance-summary {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 1rem;
+		}
+
+		.tabs button {
+			padding: 0.75rem 1rem;
+			flex: 1;
+		}
+
+		.tab-header {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 1rem;
+		}
+
+		.tab-header .actions {
+			width: 100%;
+		}
+
+		.tab-header .actions button {
+			width: 100%;
+		}
 	}
 
-	.btn-outline:hover {
-		background: #f3f4f6;
-		border-color: #9ca3af;
+	@media (max-width: 360px) {
+		.expense-item {
+			padding: 0.75rem;
+		}
+		
+		.expense-amount {
+			font-size: 1.1rem;
+		}
 	}
 </style>

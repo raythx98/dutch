@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { query } from '$lib/api';
+	import { fetchAndSyncCurrencies } from '$lib/currency';
 
 	let username = $state('');
 	let email = $state('');
@@ -24,19 +25,27 @@
 	function validate() {
 		const newErrors: Record<string, string> = {};
 
-		if (username.length < 3 || username.length > 20) {
+		if (!username) {
+			newErrors.username = 'Username is required';
+		} else if (username.length < 3 || username.length > 20) {
 			newErrors.username = 'Username must be between 3 and 20 characters';
 		}
 
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		if (!emailRegex.test(email)) {
+		if (!email) {
+			newErrors.email = 'Email is required';
+		} else if (!emailRegex.test(email)) {
 			newErrors.email = 'Invalid email address';
 		} else if (email.length > 255) {
 			newErrors.email = 'Email too long (max 255)';
 		}
 
-		if (password.length < 6 || password.length > 24) {
-			newErrors.password = 'Password must be between 6 and 24 characters';
+		if (!password) {
+			newErrors.password = 'Password is required';
+		} else if (password.length < 6) {
+			newErrors.password = 'Password must be at least 6 characters';
+		} else if (password.length > 30) {
+			newErrors.password = 'Password too long (max 30)';
 		}
 
 		errors = newErrors;
@@ -61,6 +70,9 @@
 		if (data?.register) {
 			auth.login(data.register.token, { id: data.register.id, name: data.register.name });
 			toast.success(`Account created! Welcome, ${data.register.name}!`);
+
+			// Sync currencies on register
+			fetchAndSyncCurrencies();
 			
 			const pendingInvite = localStorage.getItem('pendingInvite');
 			if (pendingInvite) {
@@ -141,6 +153,16 @@
 		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 		width: 100%;
 		max-width: 400px;
+	}
+
+	@media (max-width: 480px) {
+		.auth-container {
+			padding: 1rem;
+		}
+		.auth-form {
+			padding: 1.5rem;
+			width: 90%;
+		}
 	}
 
 	h1 {

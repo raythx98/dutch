@@ -4,37 +4,37 @@
 Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB (Local Caching), and GraphQL (Backend).
 
 ## Active Implementation Phases
-### Phase 8: Mobile Responsiveness & Validations (Active)
-- [ ] **Validations:**
-    - [ ] **Login/Register:**
-        - [ ] Email: required, valid email format, max 255 chars.
-        - [ ] Password: required, min 6, max 30 chars.
-    - [ ] **Register Only:**
-        - [ ] Username: required, min 3, max 20 chars.
-    - [ ] **Groups:**
-        - [ ] Create Group Name: required, min 3, max 20 chars.
-        - [ ] Join Token/Code: required, min 3, max 20 chars.
-    - [ ] **Members:**
-        - [ ] Add Member Email/Username: required, min 3, max 255 chars.
-    - [ ] **Expenses/Settlements:**
-        - [ ] Name: required, max 100 chars.
-        - [ ] Description: optional, max 1000 chars.
-        - [ ] Currency: required.
-        - [ ] Amount: required, non-negative.
-        - [ ] Breakdowns: must sum up to total amount.
-        - [ ] Date: required, valid date.
-        - [ ] Time: required, valid time.
-- [ ] **Mobile Responsiveness:**
-    - [ ] **Viewport Support:** Support down to 320px width.
-    - [ ] **Modals:** Occupy max 90% vertically and horizontally on small screens.
-    - [ ] **Typography:** Minimum 16px font size for all inputs/text to avoid iOS auto-zoom.
-    - [ ] **Adaptive Layouts:**
-        - [ ] Use hamburger menu or omit details beyond certain widths (Header in Dashboard/Group Details).
-        - [ ] Expense/Settlement cards in Group Details: adaptive display.
-        - [ ] Group Details Page: Owe/Owed can split into 2 rows, similar to dashboard.
-    - [ ] **Screen Fitting:** Ensure all screens fit within the viewport (Fix Group Details page overflow).
-- [ ] **Bug Fixes:**
-    - [ ] **TypeScript Error:** Fix `Cannot find name 'fetchAndSyncCurrencies'` in `login/+page.svelte`.
+### Phase 8: Mobile Responsiveness & Validations
+- [x] **Validations:**
+    - [x] **Login/Register:**
+        - [x] Email: required, valid email format, max 255 chars.
+        - [x] Password: required, min 6, max 30 chars.
+    - [x] **Register Only:**
+        - [x] Username: required, min 3, max 20 chars.
+    - [x] **Groups:**
+        - [x] Create Group Name: required, min 3, max 20 chars.
+        - [x] Join Token/Code: required, min 3, max 20 chars.
+    - [x] **Members:**
+        - [x] Add Member Email/Username: required, min 3, max 255 chars.
+    - [x] **Expenses/Settlements:**
+        - [x] Name: required, max 100 chars.
+        - [x] Description: optional, max 1000 chars.
+        - [x] Currency: required.
+        - [x] Amount: required, non-negative.
+        - [x] Breakdowns: must sum up to total amount.
+        - [x] Date: required, valid date.
+        - [x] Time: required, valid time.
+- [x] **Mobile Responsiveness:**
+    - [x] **Viewport Support:** Support down to 320px width.
+    - [x] **Modals:** Occupy max 90% vertically and horizontally on small screens.
+    - [x] **Typography:** Minimum 16px font size for all inputs/text to avoid iOS auto-zoom.
+    - [x] **Adaptive Layouts:**
+        - [x] Use hamburger menu or omit details beyond certain widths (Header in Dashboard/Group Details).
+        - [x] Expense/Settlement cards in Group Details: adaptive display.
+        - [x] Dashboard: Owe/Owed can split into 2 rows.
+    - [x] **Screen Fitting:** Ensure all screens fit within the viewport (Fix Group Details page overflow).
+- [x] **Bug Fixes:**
+    - [x] **TypeScript Error:** Fix `Cannot find name 'fetchAndSyncCurrencies'` in `login/+page.svelte`.
 
 ## Backend Requirements (For BE Team)
 - [ ] **Bug Fixes:**

@@ -124,7 +124,7 @@
 			<div class="actions">
 				<button class="btn btn-secondary" onclick={() => goto(`${base}/dashboard`)} disabled={joining}>Decline</button>
 				<button class="btn btn-primary join-btn" onclick={handleJoin} disabled={joining}>
-					{joining ? 'Joining...' : 'Accept & Join'}
+					{joining ? 'Joining...' : 'Join'}
 				</button>
 			</div>
 		{/if}
@@ -187,6 +187,9 @@
 	.join-header p {
 		color: #6b7280;
 		margin: 0;
+		width: 100%;
+		overflow-wrap: break-word;
+		min-width: 0;
 	}
 
 	.members-preview {
