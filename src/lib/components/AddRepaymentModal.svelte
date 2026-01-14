@@ -18,13 +18,24 @@
 
 	let { groupId, members, expense, prefill, usedCurrencies = [], onClose, onSuccess }: Props = $props();
 
-	let isEditing = !!expense;
-	let isViewOnly = $state(!!expense);
+	let isEditing = $derived(!!expense);
+	let isViewOnly = $state(false);
 
-	let name = $state<string>(expense ? expense.name : 'Repayment');
-	let description = $state<string>(expense ? expense.description : '');
-	let amount = $state<string>(expense ? expense.amount : (prefill ? prefill.amount : ''));
+	let name = $state<string>('Repayment');
+	let description = $state<string>('');
+	let amount = $state<string>('');
 	let currencyId = $state<string>('');
+
+	$effect.pre(() => {
+		if (expense) {
+			isViewOnly = true;
+			name = expense.name;
+			description = expense.description || '';
+			amount = expense.amount;
+		} else if (prefill) {
+			amount = prefill.amount;
+		}
+	});
 	
 	const displayCurrencies = $derived.by(() => {
 		const usedIds = new Set(usedCurrencies.map((c: any) => c.id));
@@ -52,9 +63,23 @@
 		return `${h}:${m}`;
 	}
 
-	let initialDate = expense ? new Date(expense.expenseAt) : new Date();
+	let initialDate = new Date();
 	let expenseDate = $state<string>(getLocalDate(initialDate));
-	let expenseTime = $state<string>(expense ? getLocalTime(initialDate) : '00:00');
+	let expenseTime = $state<string>('00:00');
+
+	$effect.pre(() => {
+		if (expense) {
+			isViewOnly = true;
+			name = expense.name;
+			description = expense.description || '';
+			amount = expense.amount;
+			const d = new Date(expense.expenseAt);
+			expenseDate = getLocalDate(d);
+			expenseTime = getLocalTime(d);
+		} else if (prefill) {
+			amount = prefill.amount;
+		}
+	});
 	
 	let payerId = $state<string>('');
 	let recipientId = $state<string>('');

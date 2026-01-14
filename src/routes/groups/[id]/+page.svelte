@@ -510,11 +510,6 @@
 		margin-top: 2rem;
 	}
 
-	.tab-header h2 {
-		margin: 0;
-		font-size: 1.25rem;
-	}
-
 	.tab-header .actions {
 		display: flex;
 		gap: 0.5rem;

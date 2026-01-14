@@ -17,12 +17,12 @@
 
 	let { groupId, members, expense, usedCurrencies = [], onClose, onSuccess }: Props = $props();
 
-	let isEditing = !!expense;
-	let isViewOnly = $state(!!expense);
+	let isEditing = $derived(!!expense);
+	let isViewOnly = $state(false);
 	
-	let name = $state<string>(expense ? expense.name : '');
-	let description = $state<string>(expense ? expense.description : '');
-	let amount = $state<string>(expense ? expense.amount : '');
+	let name = $state<string>('');
+	let description = $state<string>('');
+	let amount = $state<string>('');
 	let currencyId = $state<string>(''); 
 
 	const displayCurrencies = $derived.by(() => {
@@ -51,10 +51,22 @@
 		return `${h}:${m}`;
 	}
 
-	let initialDate = expense ? new Date(expense.expenseAt) : new Date();
+	let initialDate = new Date();
 	let expenseDate = $state<string>(getLocalDate(initialDate));
-	let expenseTime = $state<string>(expense ? getLocalTime(initialDate) : '00:00');
+	let expenseTime = $state<string>('00:00');
 	
+	$effect.pre(() => {
+		if (expense) {
+			isViewOnly = true;
+			name = expense.name;
+			description = expense.description || '';
+			amount = expense.amount;
+			const d = new Date(expense.expenseAt);
+			expenseDate = getLocalDate(d);
+			expenseTime = getLocalTime(d);
+		}
+	});
+
 	let loading = $state(false);
 	let errors = $state<Record<string, string>>({});
 	let amountInput: HTMLInputElement;
@@ -282,9 +294,10 @@
 					editExpense(expenseId: $id, input: $input) {
 						id
 					}
-											}
-										`, { id: expense?.id, input });
-								} else {			data = await query(`
+				}
+			`, { id: expense?.id, input });
+		} else {
+			data = await query(`
 				mutation AddExpense($groupId: ID!, $input: ExpenseInput!) {
 					addExpense(groupId: $groupId, input: $input) {
 						id

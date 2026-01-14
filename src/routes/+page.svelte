@@ -141,10 +141,6 @@
 		color: #2563eb;
 	}
 
-	.nav-actions {
-		display: none;
-	}
-
 	.hero {
 		display: flex;
 		align-items: center;
@@ -211,17 +207,6 @@
 	.btn-primary:hover {
 		background: #1d4ed8;
 		transform: translateY(-1px);
-	}
-
-	.btn-secondary {
-		background: white;
-		color: #374151;
-		border-color: #d1d5db;
-	}
-
-	.btn-secondary:hover {
-		background: #f9fafb;
-		border-color: #9ca3af;
 	}
 
 	.btn-outline {
