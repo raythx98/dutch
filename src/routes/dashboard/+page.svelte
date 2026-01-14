@@ -6,6 +6,7 @@
 	import { query } from '$lib/api';
 	import { onMount } from 'svelte';
 	import type { Group } from '$lib/types';
+	import LogoutModal from '$lib/components/LogoutModal.svelte';
 
 	interface Balance {
 		groupName: string;
@@ -17,6 +18,7 @@
 	let loading = $state(true);
 	let showCreateModal = $state(false);
 	let showJoinModal = $state(false);
+	let showLogoutModal = $state(false);
 	let newGroupName = $state('');
 	let joinCode = $state('');
 	let creating = $state(false);
@@ -173,9 +175,7 @@
 	}
 
 	function logout() {
-		auth.logout();
-		toast.info('Logged out successfully');
-		goto(`${base}/`);
+		showLogoutModal = true;
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -326,6 +326,10 @@
 				</form>
 			</div>
 		</div>
+	{/if}
+
+	{#if showLogoutModal}
+		<LogoutModal onClose={() => showLogoutModal = false} />
 	{/if}
 </div>
 

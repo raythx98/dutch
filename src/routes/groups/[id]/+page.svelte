@@ -289,9 +289,18 @@
 									</div>
 								</div>
 
-								{#if balance && expense.type !== 'Repayment'}
-									<div class="expense-balance" class:positive={balance.isOwed} class:negative={!balance.isOwed}>
-										<span class="label">{balance.isOwed ? 'YOU LENT' : 'BORROWED'}</span>
+								{#if balance}
+									<div class="expense-balance" 
+										class:positive={expense.type === 'Repayment' ? !balance.isOwed : balance.isOwed} 
+										class:negative={expense.type === 'Repayment' ? balance.isOwed : !balance.isOwed}
+									>
+										<span class="label">
+											{#if expense.type === 'Repayment'}
+												{balance.isOwed ? 'SENT' : 'RECEIVED'}
+											{:else}
+												{balance.isOwed ? 'YOU LENT' : 'BORROWED'}
+											{/if}
+										</span>
 										<span class="val">
 											{expense.currency.symbol}{balance.amount} {expense.currency.code}
 										</span>

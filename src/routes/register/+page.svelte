@@ -85,9 +85,14 @@
 	}
 </script>
 
-<div class="auth-container">
-	<form onsubmit={handleRegister} class="auth-form">
-		<h1>Join Dutch</h1>
+<div class="auth-page">
+	<header class="auth-header">
+		<a href="{base}/" class="logo">Dutch<span>.</span></a>
+	</header>
+
+	<div class="auth-container">
+		<form onsubmit={handleRegister} class="auth-form">
+			<h1>Join Dutch</h1>
 
 		<div class="field">
 			<label for="username">Username</label>
@@ -137,13 +142,31 @@
 		</p>
 	</form>
 </div>
+</div>
 
 <style>
+	.auth-page {
+		max-width: 800px;
+		margin: 0 auto;
+		padding: 2rem;
+		width: 100%;
+		box-sizing: border-box;
+	}
+
+	.auth-header {
+		display: flex;
+		justify-content: flex-start;
+		align-items: center;
+		margin-bottom: 2rem;
+		padding-bottom: 1.5rem;
+		border-bottom: 1px solid #e5e7eb;
+	}
+
 	.auth-container {
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		min-height: 80vh;
+		min-height: 60vh;
 	}
 
 	.auth-form {
@@ -227,13 +250,13 @@
 		color: #6b7280;
 	}
 
-	a {
+	.switch a {
 		color: #4f46e5;
 		text-decoration: none;
 		font-weight: 500;
 	}
 
-	a:hover {
+	.switch a:hover {
 		text-decoration: underline;
 	}
 </style>

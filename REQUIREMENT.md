@@ -4,23 +4,9 @@
 Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB (Local Caching), and GraphQL (Backend).
 
 ## Active Implementation Phases
-- [x] Stop redirecting `/` to `/dashboard`, design a nice looking landing page briefly explaining what `Dutch` is, with login & register button
-- [x] Clicking on the Dutch icon in dashboard should redirect to the landing page, a Dashboard button will appear in place of the login/register buttons
-- [x] If user is not logged in, they should be redirected to the landing page
-- [x] In group details page, remove the wording "Expenses" "Group Members" below the tab
-- [ ] **Auth Branding:** Implement the "Dutch." logo on `/login` and `/register` pages.
-    - Position must match the Dashboard header for visual consistency.
-    - Clicking the logo must redirect to the Landing Page (`/`).
-- [ ] **Logout Safety:** Add a custom confirmation modal for the logout action on the Dashboard.
-    - Must follow the project's custom modal styling (backdrop, centered card).
-    - Prevent accidental logouts on mobile.
-- [ ] **Path-Aware Invite Links:** Fix the `InviteModal` link generation to support subdirectories.
-    - Use SvelteKit's `base` path to ensure links work on GitHub Pages.
-    - Format: `[origin][base]/join/[code]`
  
 ## Backlog
 - [ ] **Offline Mode:** Sync queue for mutations when offline.
-
 
 ## Completed System Foundation
 - [x] **Project Scaffolding:** SvelteKit + TypeScript.
@@ -165,3 +151,19 @@ Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB 
     - [x] **Screen Fitting:** Ensure all screens fit within the viewport (Fix Group Details page overflow).
 - [x] **Bug Fixes:**
     - [x] **TypeScript Error:** Fix `Cannot find name 'fetchAndSyncCurrencies'` in `login/+page.svelte`.
+
+- [x] **Landing Page:** Design a modern landing page at `/` with login/register options.
+    - [x] Stop redirecting `/` to `/dashboard`.
+    - [x] Toggle Dashboard/Login buttons based on auth state.
+    - [x] **Auth Guard:** Redirect unauthenticated users to the landing page.
+- [x] **UI Cleanup:** Simplify the Group Details interface.
+    - [x] Remove redundant "Expenses" and "Group Members" labels below tabs.
+- [x] **Logout Safety:** Add a custom confirmation modal for the logout action on the Dashboard.
+    - [x] **Styling:** Follow project's custom modal (backdrop, centered card).
+    - [x] **Mobile UX:** Prevent accidental logouts on small screens.
+- [x] **Path-Aware Invite Links:** Fix the `InviteModal` link generation to support subdirectories.
+    - [x] **SvelteKit Base:** Use `base` path for GitHub Pages compatibility.
+    - [x] **Format:** `[origin][base]/join/[code]`
+- [x] **Auth Branding:** Implement the "Dutch." logo on `/login` and `/register` pages.
+    - [x] **Visual Consistency:** Match Dashboard header positioning.
+    - [x] **Navigation:** Redirect to landing page on logo click.

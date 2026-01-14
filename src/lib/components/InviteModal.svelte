@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { toast } from '$lib/toast';
+	import { base } from '$app/paths';
 
 	let { inviteToken, onClose }: { inviteToken: string; onClose: () => void } = $props();
 	
-	const inviteLink = $derived(typeof window !== 'undefined' ? `${window.location.origin}/join/${inviteToken}` : '');
+	const inviteLink = $derived(typeof window !== 'undefined' ? `${window.location.origin}${base}/join/${inviteToken}` : '');
 
 	function copyToClipboard() {
 		navigator.clipboard.writeText(inviteLink);
