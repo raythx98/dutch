@@ -1,5 +1,4 @@
 <script lang="ts">
-	import favicon from '$lib/assets/favicon.svg';
 	import Toast from '$lib/components/Toast.svelte';
 	import { auth } from '$lib/auth';
 	import { loadCurrenciesFromDB } from '$lib/currency';
@@ -30,10 +29,6 @@
 		return unsubscribe;
 	});
 </script>
-
-<svelte:head>
-	<link rel="icon" href={favicon} />
-</svelte:head>
 
 <Toast />
 
