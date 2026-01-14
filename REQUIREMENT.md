@@ -8,8 +8,16 @@ Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB 
 - [x] Clicking on the Dutch icon in dashboard should redirect to the landing page, a Dashboard button will appear in place of the login/register buttons
 - [x] If user is not logged in, they should be redirected to the landing page
 - [x] In group details page, remove the wording "Expenses" "Group Members" below the tab
-
-
+- [ ] **Auth Branding:** Implement the "Dutch." logo on `/login` and `/register` pages.
+    - Position must match the Dashboard header for visual consistency.
+    - Clicking the logo must redirect to the Landing Page (`/`).
+- [ ] **Logout Safety:** Add a custom confirmation modal for the logout action on the Dashboard.
+    - Must follow the project's custom modal styling (backdrop, centered card).
+    - Prevent accidental logouts on mobile.
+- [ ] **Path-Aware Invite Links:** Fix the `InviteModal` link generation to support subdirectories.
+    - Use SvelteKit's `base` path to ensure links work on GitHub Pages.
+    - Format: `[origin][base]/join/[code]`
+ 
 ## Backlog
 - [ ] **Offline Mode:** Sync queue for mutations when offline.
 
