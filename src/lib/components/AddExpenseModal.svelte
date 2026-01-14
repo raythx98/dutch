@@ -1,19 +1,21 @@
 <script lang="ts">
-	import { currencyStore, fetchAndSyncCurrencies, type Currency } from '$lib/currency';
+	import { currencyStore, fetchAndSyncCurrencies } from '$lib/currency';
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
 	import { onMount } from 'svelte';
-	import type { User, Expense } from '$lib/types';
+	import type { User, Expense, Currency } from '$lib/types';
 
-	let { groupId, members, expense, usedCurrencies = [], onClose, onSuccess } = $props() as {
-		groupId: string,
-		members: User[],
-		expense?: Expense,
-		usedCurrencies?: Currency[],
-		onClose: () => void,
-		onSuccess: () => void
-	};
+	interface Props {
+		groupId: string;
+		members: User[];
+		expense?: Expense;
+		usedCurrencies?: Currency[];
+		onClose: () => void;
+		onSuccess: () => void;
+	}
+
+	let { groupId, members, expense, usedCurrencies = [], onClose, onSuccess }: Props = $props();
 
 	let isEditing = !!expense;
 	let isViewOnly = $state(!!expense);
@@ -134,7 +136,7 @@
 	const filteredPayers = $derived(isViewOnly ? payers.filter(p => parseFloat(p.amount) > 0) : payers);
 	const filteredShares = $derived(isViewOnly ? shares.filter(s => parseFloat(s.amount) > 0) : shares);
 
-	function getName(member: Member | undefined) {
+	function getName(member: User | undefined) {
 		if (!member) return 'Unknown';
 		return member.name;
 	}
@@ -155,21 +157,21 @@
 	$effect(() => {
 		if (sortedMembers.length > 0 && payers.length === 0) {
 			if (expense) {
-				payers = sortedMembers.map((m: Member) => {
+				payers = sortedMembers.map((m: User) => {
 					const existing = expense.payers.find((p: any) => p.user.id === m.id); 
 					return { userId: m.id, amount: existing ? parseFloat(existing.amount).toFixed(2) : '0.00' };
 				});
-				shares = sortedMembers.map((m: Member) => {
+				shares = sortedMembers.map((m: User) => {
 					const existing = expense.shares.find((s: any) => s.user.id === m.id);
 					return { userId: m.id, amount: existing ? parseFloat(existing.amount).toFixed(2) : '0.00' };
 				});
 			} else {
 				const currentUserId = $auth.user?.id;
-				payers = sortedMembers.map((m: Member) => ({
+				payers = sortedMembers.map((m: User) => ({
 					userId: m.id,
 					amount: m.id === currentUserId ? '0.00' : '0.00'
 				}));
-				shares = sortedMembers.map((m: Member) => ({
+				shares = sortedMembers.map((m: User) => ({
 					userId: m.id,
 					amount: '0.00'
 				}));
@@ -280,10 +282,9 @@
 					editExpense(expenseId: $id, input: $input) {
 						id
 					}
-				}
-			`, { id: expense.id, input });
-		} else {
-			data = await query(`
+											}
+										`, { id: expense?.id, input });
+								} else {			data = await query(`
 				mutation AddExpense($groupId: ID!, $input: ExpenseInput!) {
 					addExpense(groupId: $groupId, input: $input) {
 						id

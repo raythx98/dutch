@@ -2,7 +2,7 @@
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
-	import type { Expense } from '$lib/types';
+	import type { Expense, User } from '$lib/types';
 
 	let { expense, onClose, onSuccess }: { expense: Expense; onClose: () => void; onSuccess: () => void } = $props();
 	let loading = $state(false);

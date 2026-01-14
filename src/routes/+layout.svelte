@@ -11,21 +11,19 @@
 
 	let { children } = $props();
 
-	const publicPages = ['/login', '/register'];
+	const publicPages = ['/', '/login', '/register'];
 
 	onMount(() => {
 		const unsubscribe = auth.subscribe(($auth) => {
 			const path = $page.url.pathname;
 
 			if (!$auth.token && !publicPages.includes(path)) {
-				goto(`${base}/login`);
+				goto(`${base}/`);
 			} else if ($auth.token) {
 				loadCurrenciesFromDB();
-				if (path === '/login' || path === '/register' || path === '/') {
+				if (path === '/login' || path === '/register') {
 					goto(`${base}/dashboard`);
 				}
-			} else if (path === '/') {
-				goto(`${base}/dashboard`);
 			}
 		});
 

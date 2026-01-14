@@ -4,46 +4,11 @@
 Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB (Local Caching), and GraphQL (Backend).
 
 ## Active Implementation Phases
-### Phase 8: Mobile Responsiveness & Validations
-- [x] **Validations:**
-    - [x] **Login/Register:**
-        - [x] Email: required, valid email format, max 255 chars.
-        - [x] Password: required, min 6, max 30 chars.
-    - [x] **Register Only:**
-        - [x] Username: required, min 3, max 20 chars.
-    - [x] **Groups:**
-        - [x] Create Group Name: required, min 3, max 20 chars.
-        - [x] Join Token/Code: required, min 3, max 20 chars.
-    - [x] **Members:**
-        - [x] Add Member Email/Username: required, min 3, max 255 chars.
-    - [x] **Expenses/Settlements:**
-        - [x] Name: required, max 100 chars.
-        - [x] Description: optional, max 1000 chars.
-        - [x] Currency: required.
-        - [x] Amount: required, non-negative.
-        - [x] Breakdowns: must sum up to total amount.
-        - [x] Date: required, valid date.
-        - [x] Time: required, valid time.
-- [x] **Mobile Responsiveness:**
-    - [x] **Viewport Support:** Support down to 320px width.
-    - [x] **Modals:** Occupy max 90% vertically and horizontally on small screens.
-    - [x] **Typography:** Minimum 16px font size for all inputs/text to avoid iOS auto-zoom.
-    - [x] **Adaptive Layouts:**
-        - [x] Use hamburger menu or omit details beyond certain widths (Header in Dashboard/Group Details).
-        - [x] Expense/Settlement cards in Group Details: adaptive display.
-        - [x] Dashboard: Owe/Owed can split into 2 rows.
-    - [x] **Screen Fitting:** Ensure all screens fit within the viewport (Fix Group Details page overflow).
-- [x] **Bug Fixes:**
-    - [x] **TypeScript Error:** Fix `Cannot find name 'fetchAndSyncCurrencies'` in `login/+page.svelte`.
+- [x] Stop redirecting `/` to `/dashboard`, design a nice looking landing page briefly explaining what `Dutch` is, with login & register button
+- [x] Clicking on the Dutch icon in dashboard should redirect to the landing page, a Dashboard button will appear in place of the login/register buttons
+- [x] If user is not logged in, they should be redirected to the landing page
+- [x] In group details page, remove the wording "Expenses" "Group Members" below the tab
 
-## Backend Requirements (For BE Team)
-- [ ] **Bug Fixes:**
-    - **Owes Aggregation:** Fix bug where owing multiple people results in only one appearing in the summary.
-    - **Ghost Debts:** Fix bug where cross-currency debts sometimes result in duplicate or reversed entries (e.g., showing both "You owe A $20" and "A owes You $20" incorrectly), this bug is non-deterministic (it happens on/off after refresh).
-- [ ] **Logic Improvements:**
-    - **Stable Sorting:** An expense happening at the exact same time should then by sorted based on insertion order (latest at the top), the insertion order must remain the same even when the expense is edited (which is a delete + insert in backend).
-    - **Group Currencies:** Instead of tracking currency usage by user, API should return a sorted list of *used* currenciesf (DESC by num of usages) for the group to allow the FE to prioritize them in dropdowns.
-    - **Rate Limiting:** Add rate limits to all endpoints.
 
 ## Backlog
 - [ ] **Offline Mode:** Sync queue for mutations when offline.
@@ -160,3 +125,35 @@ Dutch is an alternative to Splitwise built with SvelteKit (Frontend), IndexedDB 
     - [x] **Currency Sorting Bug:** Fix issue where refreshing the page resets the currency list order.
 - [x] **Bug Fix::**
   - [x] **Add Settlement/Repayment debtor/creditor:** After adding a settlement/repayment, the resulting expense has the to/from in the reverse order
+
+### Phase 8: Mobile Responsiveness & Validations
+- [x] **Validations:**
+    - [x] **Login/Register:**
+        - [x] Email: required, valid email format, max 255 chars.
+        - [x] Password: required, min 6, max 30 chars.
+    - [x] **Register Only:**
+        - [x] Username: required, min 3, max 20 chars.
+    - [x] **Groups:**
+        - [x] Create Group Name: required, min 3, max 20 chars.
+        - [x] Join Token/Code: required, min 3, max 20 chars.
+    - [x] **Members:**
+        - [x] Add Member Email/Username: required, min 3, max 255 chars.
+    - [x] **Expenses/Settlements:**
+        - [x] Name: required, max 100 chars.
+        - [x] Description: optional, max 1000 chars.
+        - [x] Currency: required.
+        - [x] Amount: required, non-negative.
+        - [x] Breakdowns: must sum up to total amount.
+        - [x] Date: required, valid date.
+        - [x] Time: required, valid time.
+- [x] **Mobile Responsiveness:**
+    - [x] **Viewport Support:** Support down to 320px width.
+    - [x] **Modals:** Occupy max 90% vertically and horizontally on small screens.
+    - [x] **Typography:** Minimum 16px font size for all inputs/text to avoid iOS auto-zoom.
+    - [x] **Adaptive Layouts:**
+        - [x] Use hamburger menu or omit details beyond certain widths (Header in Dashboard/Group Details).
+        - [x] Expense/Settlement cards in Group Details: adaptive display.
+        - [x] Dashboard: Owe/Owed can split into 2 rows.
+    - [x] **Screen Fitting:** Ensure all screens fit within the viewport (Fix Group Details page overflow).
+- [x] **Bug Fixes:**
+    - [x] **TypeScript Error:** Fix `Cannot find name 'fetchAndSyncCurrencies'` in `login/+page.svelte`.

@@ -1,20 +1,22 @@
 <script lang="ts">
-	import { currencyStore, fetchAndSyncCurrencies, type Currency } from '$lib/currency';
+	import { currencyStore, fetchAndSyncCurrencies } from '$lib/currency';
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
 	import { onMount } from 'svelte';
-	import type { User, Expense } from '$lib/types';
+	import type { User, Expense, Currency } from '$lib/types';
 
-	let { groupId, members, expense, prefill, usedCurrencies = [], onClose, onSuccess } = $props() as {
-		groupId: string,
-		members: User[],
-		expense?: Expense,
-		prefill?: { amount: string, payerId: string, recipientId: string, currencyCode: string },
-		usedCurrencies?: Currency[],
-		onClose: () => void,
-		onSuccess: () => void
-	};
+	interface Props {
+		groupId: string;
+		members: User[];
+		expense?: Expense;
+		prefill?: { amount: string, payerId: string, recipientId: string, currencyCode: string };
+		usedCurrencies?: Currency[];
+		onClose: () => void;
+		onSuccess: () => void;
+	}
+
+	let { groupId, members, expense, prefill, usedCurrencies = [], onClose, onSuccess }: Props = $props();
 
 	let isEditing = !!expense;
 	let isViewOnly = $state(!!expense);
@@ -103,14 +105,14 @@
 	$effect(() => {
 		if (sortedMembers.length > 0 && !payerId) {
 			if (expense) {
-				payerId = expense.payers[0]?.user.id;
-				recipientId = expense.shares[0]?.user.id;
+				payerId = expense.payers[0].user.id;
+				recipientId = expense.shares[0].user.id;
 			} else if (prefill) {
 				payerId = prefill.payerId;
 				recipientId = prefill.recipientId;
 			} else {
 				payerId = $auth.user?.id || sortedMembers[0].id;
-				const firstNonMe = sortedMembers.find((m: Member) => m.id !== $auth.user?.id);
+				const firstNonMe = sortedMembers.find((m: User) => m.id !== $auth.user?.id);
 				recipientId = firstNonMe ? firstNonMe.id : sortedMembers[0].id;
 			}
 		}
@@ -169,10 +171,9 @@
 					editExpense(expenseId: $id, input: $input) {
 						id
 					}
-				}
-			`, { id: expense.id, input });
-		} else {
-			const input = {
+											}
+										`, { id: expense?.id, input });
+								} else {			const input = {
 				name,
 				description,
 				type: 'Repayment',

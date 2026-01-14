@@ -14,7 +14,7 @@
 	import DeleteExpenseModal from '$lib/components/DeleteExpenseModal.svelte';
 	import InviteModal from '$lib/components/InviteModal.svelte';
 
-	const groupId = $page.params.id;
+	const groupId = $page.params.id as string;
 
 	let group = $state<Group | null>(null);
 	let summary = $state<ExpenseSummary | null>(null);
@@ -237,8 +237,7 @@
 		{:else if activeTab === 'expenses'}
 			<section class="expenses-tab">
 				<div class="tab-header">
-					<h2>Expenses</h2>
-					<div class="actions">
+					<div class="actions" style="margin-left: auto;">
 						<button class="btn btn-primary" onclick={() => { editingExpense = undefined; showAddExpense = true; }}>Add Expense</button>
 					</div>
 				</div>
@@ -315,10 +314,6 @@
 			</section>
 		{:else if activeTab === 'members'}
 			<section class="members-tab">
-				<div class="tab-header">
-					<h2>Group Members</h2>
-				</div>
-				
 				{#if group}
 					{@const sortedMembers = [...group.members].sort((a, b) => a.id === $auth.user?.id ? -1 : (b.id === $auth.user?.id ? 1 : 0))}
 					<ul class="member-list">
@@ -386,7 +381,7 @@
 
 	{#if showInvite && group}
 		<InviteModal 
-			inviteToken={group.inviteToken}
+			inviteToken={group.inviteToken || ''}
 			onClose={() => showInvite = false}
 		/>
 	{/if}

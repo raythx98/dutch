@@ -29,7 +29,7 @@
 			if (inviteCode) {
 				localStorage.setItem('pendingInvite', inviteCode);
 			}
-			goto(`${base}/login`);
+			goto(`${base}/`);
 			return;
 		}
 

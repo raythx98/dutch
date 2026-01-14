@@ -175,7 +175,7 @@
 	function logout() {
 		auth.logout();
 		toast.info('Logged out successfully');
-		goto(`${base}/login`);
+		goto(`${base}/`);
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -194,7 +194,7 @@
 
 <div class="dashboard">
 	<header class="dashboard-header">
-		<div class="logo">Dutch<span>.</span></div>
+		<a href="{base}/" class="logo">Dutch<span>.</span></a>
 		<div class="user-info">
 			<span class="welcome-text">Hi, <strong>{$auth.user?.name}</strong></span>
 			<div class="btn-group">
