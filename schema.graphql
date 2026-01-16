@@ -1,112 +1,112 @@
 directive @auth on FIELD_DEFINITION
 
 type Mutation {
-    register(email: String!, password: String!, username: String!): User!
-    login(email: String!, password: String!): User!
-    joinGroup(inviteCode: String!): Group! @auth
-    addGroup(name: String!): Group! @auth
-    deleteGroup(groupId: ID!): Boolean! @auth
-    addMember(groupId: ID!, identifier: String!): Group! @auth
-    addRepayment(groupId: ID!, input: RepaymentInput!): Expense! @auth
-    addExpense(groupId: ID!, input: ExpenseInput!): Expense! @auth
-    editExpense(expenseId: ID!, input: ExpenseInput!): Expense! @auth
-    deleteExpense(expenseId: ID!): Boolean! @auth
+	register(email: String!, password: String!, username: String!): User!
+	login(email: String!, password: String!): User!
+	joinGroup(inviteCode: String!): Group! @auth
+	addGroup(name: String!): Group! @auth
+	deleteGroup(groupId: ID!): Boolean! @auth
+	addMember(groupId: ID!, identifier: String!): Group! @auth
+	addRepayment(groupId: ID!, input: RepaymentInput!): Expense! @auth
+	addExpense(groupId: ID!, input: ExpenseInput!): Expense! @auth
+	editExpense(expenseId: ID!, input: ExpenseInput!): Expense! @auth
+	deleteExpense(expenseId: ID!): Boolean! @auth
 }
 
 type Query {
-    previewGroup(inviteCode: String!): RedactedGroup! @auth
-    groups: [Group!]! @auth
-    group(groupId: ID!): Group! @auth
-    expenses(groupId: ID!): ExpenseSummary! @auth
-    currencies: [Currency!]! @auth
+	previewGroup(inviteCode: String!): RedactedGroup! @auth
+	groups: [Group!]! @auth
+	group(groupId: ID!): Group! @auth
+	expenses(groupId: ID!): ExpenseSummary! @auth
+	currencies: [Currency!]! @auth
 }
 
 input RepaymentInput {
-    name: String!
-    description: String!
-    amount: Decimal!
-    type: String!
-    currencyId: ID!
-    expenseAt: Time!
-    debtor: ID!
-    creditor: ID!
+	name: String!
+	description: String!
+	amount: Decimal!
+	type: String!
+	currencyId: ID!
+	expenseAt: Time!
+	debtor: ID!
+	creditor: ID!
 }
 
 input ExpenseInput {
-    name: String!
-    description: String!
-    amount: Decimal!
-    type: String!
-    currencyId: ID!
-    expenseAt: Time!
-    payers: [ShareInput!]!
-    shares: [ShareInput!]!
+	name: String!
+	description: String!
+	amount: Decimal!
+	type: String!
+	currencyId: ID!
+	expenseAt: Time!
+	payers: [ShareInput!]!
+	shares: [ShareInput!]!
 }
 
 input ShareInput {
-    userId: ID!
-    amount: Decimal!
+	userId: ID!
+	amount: Decimal!
 }
 
 scalar Decimal
 scalar Time
 
 type Subscription {
-    expenseAdded(userId: ID!): Expense!
-    expenseUpdated(userId: ID!): Expense!
+	expenseAdded(userId: ID!): Expense!
+	expenseUpdated(userId: ID!): Expense!
 }
 
 type Currency {
-    id: ID!
-    code: String!
-    name: String!
-    symbol: String!
+	id: ID!
+	code: String!
+	name: String!
+	symbol: String!
 }
 
 type User {
-    id: ID!
-    name: String!
-    token: String!
+	id: ID!
+	name: String!
+	token: String!
 }
 
 type RedactedGroup {
-    name: String!
-    members: [User!]!
+	name: String!
+	members: [User!]!
 }
 
 type Group {
-    id: ID!
-    name: String!
-    inviteToken: String!
-    members: [User!]!
-    usedCurrencies: [Currency!]!
+	id: ID!
+	name: String!
+	inviteToken: String!
+	members: [User!]!
+	usedCurrencies: [Currency!]!
 }
 
 type ExpenseSummary {
-    expenses: [Expense!]!
-    owes: [Owe!]!
-    owed: [Owe!]!
+	expenses: [Expense!]!
+	owes: [Owe!]!
+	owed: [Owe!]!
 }
 
 type Owe {
-    user: User!
-    amount: Decimal!
-    currency: Currency!
+	user: User!
+	amount: Decimal!
+	currency: Currency!
 }
 
 type Expense {
-    id: ID!
-    type: String!
-    name: String!
-    description: String!
-    amount: Decimal!
-    currency: Currency!
-    expenseAt: Time!
-    payers: [Share!]!
-    shares: [Share!]!
+	id: ID!
+	type: String!
+	name: String!
+	description: String!
+	amount: Decimal!
+	currency: Currency!
+	expenseAt: Time!
+	payers: [Share!]!
+	shares: [Share!]!
 }
 
 type Share {
-    user: User!
-    amount: Decimal!
+	user: User!
+	amount: Decimal!
 }

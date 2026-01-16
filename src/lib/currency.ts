@@ -13,13 +13,14 @@ interface DutchDB extends DBSchema {
 const DB_NAME = 'dutch-db';
 const STORE_NAME = 'currencies';
 
-const dbPromise = typeof window !== 'undefined'
-	? openDB<DutchDB>(DB_NAME, 1, {
-			upgrade(db) {
-				db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-			}
-		})
-	: null;
+const dbPromise =
+	typeof window !== 'undefined'
+		? openDB<DutchDB>(DB_NAME, 1, {
+				upgrade(db) {
+					db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+				}
+			})
+		: null;
 
 export const currencyStore = writable<Currency[]>([]);
 
@@ -60,7 +61,7 @@ export async function loadCurrenciesFromDB() {
 	if (!dbPromise) return;
 	const db = await dbPromise;
 	const allCurrencies = await db.getAll(STORE_NAME);
-	
+
 	if (allCurrencies.length > 0) {
 		allCurrencies.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 		currencyStore.set(allCurrencies);

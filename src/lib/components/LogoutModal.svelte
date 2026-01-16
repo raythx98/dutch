@@ -30,7 +30,7 @@
 <svelte:window onkeydowncapture={handleKeydown} />
 
 <div class="modal-backdrop" onclick={onClose} role="presentation">
-	<div class="modal-content" onclick={e => e.stopPropagation()} role="presentation">
+	<div class="modal-content" onclick={(e) => e.stopPropagation()} role="presentation">
 		<header class="modal-header">
 			<h2>Confirm Logout</h2>
 			<button class="close-btn" onclick={onClose}>&times;</button>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { currencyStore, fetchAndSyncCurrencies } from '$lib/currency';
+	import { currencyStore } from '$lib/currency';
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
@@ -10,13 +10,21 @@
 		groupId: string;
 		members: User[];
 		expense?: Expense;
-		prefill?: { amount: string, payerId: string, recipientId: string, currencyCode: string };
+		prefill?: { amount: string; payerId: string; recipientId: string; currencyCode: string };
 		usedCurrencies?: Currency[];
 		onClose: () => void;
 		onSuccess: () => void;
 	}
 
-	let { groupId, members, expense, prefill, usedCurrencies = [], onClose, onSuccess }: Props = $props();
+	let {
+		groupId,
+		members,
+		expense,
+		prefill,
+		usedCurrencies = [],
+		onClose,
+		onSuccess
+	}: Props = $props();
 
 	let isEditing = $derived(!!expense);
 	let isViewOnly = $state(false);
@@ -36,11 +44,11 @@
 			amount = prefill.amount;
 		}
 	});
-	
+
 	const displayCurrencies = $derived.by(() => {
-		const usedIds = new Set(usedCurrencies.map((c: any) => c.id));
+		const usedIds = new Set(usedCurrencies.map((c: Currency) => c.id));
 		const others = $currencyStore.filter((c: Currency) => !usedIds.has(c.id));
-		
+
 		if (usedCurrencies.length === 0) return $currencyStore;
 		if (others.length === 0) return usedCurrencies;
 
@@ -50,10 +58,10 @@
 			...others
 		];
 	});
-	
+
 	function getLocalDate(date: Date) {
 		const offset = date.getTimezoneOffset();
-		const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+		const localDate = new Date(date.getTime() - offset * 60 * 1000);
 		return localDate.toISOString().slice(0, 10);
 	}
 
@@ -80,7 +88,7 @@
 			amount = prefill.amount;
 		}
 	});
-	
+
 	let payerId = $state<string>('');
 	let recipientId = $state<string>('');
 	let loading = $state(false);
@@ -89,7 +97,7 @@
 
 	function validate() {
 		const newErrors: Record<string, string> = {};
-		
+
 		if (!name.trim()) {
 			newErrors.name = 'Title is required';
 		} else if (name.length > 100) {
@@ -125,7 +133,9 @@
 		return Object.keys(newErrors).length === 0;
 	}
 
-	const sortedMembers = $derived([...members].sort((a, b) => a.id === $auth.user?.id ? -1 : (b.id === $auth.user?.id ? 1 : 0)));
+	const sortedMembers = $derived(
+		[...members].sort((a, b) => (a.id === $auth.user?.id ? -1 : b.id === $auth.user?.id ? 1 : 0))
+	);
 
 	$effect(() => {
 		if (sortedMembers.length > 0 && !payerId) {
@@ -146,13 +156,13 @@
 	$effect(() => {
 		if (displayCurrencies.length > 0 && !currencyId) {
 			if (expense) {
-				const found = displayCurrencies.find((c: any) => c.code === expense.currency.code);
+				const found = displayCurrencies.find((c: Currency) => c.code === expense.currency.code);
 				if (found && found.id !== 'separator') currencyId = found.id;
 			} else if (prefill) {
-				const found = displayCurrencies.find((c: any) => c.code === prefill.currencyCode);
+				const found = displayCurrencies.find((c: Currency) => c.code === prefill.currencyCode);
 				if (found && found.id !== 'separator') currencyId = found.id;
 			} else {
-				const first = displayCurrencies.find((c: any) => c.id !== 'separator');
+				const first = displayCurrencies.find((c: Currency) => c.id !== 'separator');
 				if (first) currencyId = first.id;
 			}
 		}
@@ -191,14 +201,18 @@
 				payers: [{ userId: recipientId, amount: totalAmount.toFixed(2) }],
 				shares: [{ userId: payerId, amount: totalAmount.toFixed(2) }]
 			};
-			data = await query(`
+			data = await query(
+				`
 				mutation EditExpense($id: ID!, $input: ExpenseInput!) {
 					editExpense(expenseId: $id, input: $input) {
 						id
 					}
 											}
-										`, { id: expense?.id, input });
-								} else {			const input = {
+										`,
+				{ id: expense?.id, input }
+			);
+		} else {
+			const input = {
 				name,
 				description,
 				type: 'Repayment',
@@ -208,13 +222,16 @@
 				debtor: recipientId,
 				creditor: payerId
 			};
-			data = await query(`
+			data = await query(
+				`
 				mutation AddRepayment($groupId: ID!, $input: RepaymentInput!) {
 					addRepayment(groupId: $groupId, input: $input) {
 						id
 					}
 				}
-			`, { groupId, input });
+			`,
+				{ groupId, input }
+			);
 		}
 
 		if (data) {
@@ -232,21 +249,23 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="modal-backdrop" onclick={onClose} aria-hidden="true">
-	<div class="modal-content" onclick={e => e.stopPropagation()} aria-hidden="true">
+	<div class="modal-content" onclick={(e) => e.stopPropagation()} aria-hidden="true">
 		<header class="modal-header">
-			<h2>{isEditing ? (isViewOnly ? 'Repayment Details' : 'Edit Repayment') : 'Record Repayment'}</h2>
+			<h2>
+				{isEditing ? (isViewOnly ? 'Repayment Details' : 'Edit Repayment') : 'Record Repayment'}
+			</h2>
 			<button class="close-btn" onclick={onClose}>&times;</button>
 		</header>
 
 		<form onsubmit={handleSubmit}>
 			<div class="form-group">
 				<label for="name">Title</label>
-				<input 
-					type="text" 
-					id="name" 
-					bind:value={name} 
-					placeholder="Repayment" 
-					required 
+				<input
+					type="text"
+					id="name"
+					bind:value={name}
+					placeholder="Repayment"
+					required
 					disabled={isViewOnly}
 					class:error={errors.name}
 				/>
@@ -255,10 +274,10 @@
 
 			<div class="form-group">
 				<label for="description">Description (Optional)</label>
-				<textarea 
-					id="description" 
-					bind:value={description} 
-					placeholder="Add more details..." 
+				<textarea
+					id="description"
+					bind:value={description}
+					placeholder="Add more details..."
 					disabled={isViewOnly}
 					class:error={errors.description}
 				></textarea>
@@ -270,20 +289,21 @@
 				<div class="input-with-currency" class:error={errors.amount || errors.currency}>
 					<select bind:value={currencyId} disabled={isViewOnly}>
 						<option value="" disabled selected>Select</option>
-						{#each displayCurrencies as curr}
+						{#each displayCurrencies as curr (curr.id)}
 							<option value={curr.id} disabled={curr.id === 'separator'}>
-								{curr.code} {curr.symbol ? `(${curr.symbol})` : ''}
+								{curr.code}
+								{curr.symbol ? `(${curr.symbol})` : ''}
 							</option>
 						{/each}
 					</select>
-					<input 
-						type="number" 
-						id="amount" 
-						step="0.01" 
+					<input
+						type="number"
+						id="amount"
+						step="0.01"
 						bind:this={amountInput}
-						bind:value={amount} 
-						placeholder="0.00" 
-						required 
+						bind:value={amount}
+						placeholder="0.00"
+						required
 						disabled={isViewOnly}
 					/>
 				</div>
@@ -294,12 +314,26 @@
 			<div class="form-row compact-row">
 				<div class="form-group">
 					<label for="date">Date</label>
-					<input type="date" id="date" bind:value={expenseDate} required disabled={isViewOnly} class:error={errors.date} />
+					<input
+						type="date"
+						id="date"
+						bind:value={expenseDate}
+						required
+						disabled={isViewOnly}
+						class:error={errors.date}
+					/>
 					{#if errors.date}<span class="error-text">{errors.date}</span>{/if}
 				</div>
 				<div class="form-group">
 					<label for="time">Time</label>
-					<input type="time" id="time" bind:value={expenseTime} required disabled={isViewOnly} class:error={errors.time} />
+					<input
+						type="time"
+						id="time"
+						bind:value={expenseTime}
+						required
+						disabled={isViewOnly}
+						class:error={errors.time}
+					/>
 					{#if errors.time}<span class="error-text">{errors.time}</span>{/if}
 				</div>
 			</div>
@@ -307,9 +341,10 @@
 			<div class="form-group large-select">
 				<label for="debtor">Who paid?</label>
 				<select id="debtor" bind:value={payerId} required disabled={isViewOnly}>
-					{#each sortedMembers as member}
+					{#each sortedMembers as member (member.id)}
 						<option value={member.id}>
-							{member.name} {member.id === $auth.user?.id ? '(Me)' : ''}
+							{member.name}
+							{member.id === $auth.user?.id ? '(Me)' : ''}
 						</option>
 					{/each}
 				</select>
@@ -317,10 +352,17 @@
 
 			<div class="form-group large-select">
 				<label for="creditor">To whom?</label>
-				<select id="creditor" bind:value={recipientId} required disabled={isViewOnly} class:error={errors.recipient}>
-					{#each sortedMembers as member}
+				<select
+					id="creditor"
+					bind:value={recipientId}
+					required
+					disabled={isViewOnly}
+					class:error={errors.recipient}
+				>
+					{#each sortedMembers as member (member.id)}
 						<option value={member.id}>
-							{member.name} {member.id === $auth.user?.id ? '(Me)' : ''}
+							{member.name}
+							{member.id === $auth.user?.id ? '(Me)' : ''}
 						</option>
 					{/each}
 				</select>
@@ -330,10 +372,12 @@
 			<div class="modal-actions">
 				<button type="button" class="btn btn-secondary" onclick={onClose}>Cancel</button>
 				{#if isViewOnly}
-					<button type="button" class="btn btn-primary" onclick={() => isViewOnly = false}>Edit</button>
+					<button type="button" class="btn btn-primary" onclick={() => (isViewOnly = false)}
+						>Edit</button
+					>
 				{:else}
 					<button type="submit" class="btn btn-primary" disabled={loading}>
-						{loading ? 'Saving...' : (isEditing ? 'Update Repayment' : 'Record Repayment')}
+						{loading ? 'Saving...' : isEditing ? 'Update Repayment' : 'Record Repayment'}
 					</button>
 				{/if}
 			</div>
@@ -373,7 +417,10 @@
 		margin-bottom: 1.5rem;
 	}
 
-	.modal-header h2 { margin: 0; font-size: 1.25rem; }
+	.modal-header h2 {
+		margin: 0;
+		font-size: 1.25rem;
+	}
 
 	.close-btn {
 		background: none;
@@ -407,7 +454,7 @@
 		color: #374151;
 	}
 
-	.form-group input[type="text"],
+	.form-group input[type='text'],
 	.form-group textarea {
 		padding: 0.625rem;
 		border: 1px solid #d1d5db;
@@ -448,7 +495,8 @@
 		display: block;
 	}
 
-	select.error, input.error {
+	select.error,
+	input.error {
 		border-color: #ef4444;
 	}
 

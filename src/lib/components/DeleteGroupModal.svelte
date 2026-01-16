@@ -9,7 +9,11 @@
 	let { group, onClose }: { group: Group; onClose: () => void } = $props();
 	let loading = $state(false);
 
-	const sortedMembers = $derived([...group.members].sort((a, b) => a.id === $auth.user?.id ? -1 : (b.id === $auth.user?.id ? 1 : 0)));
+	const sortedMembers = $derived(
+		[...group.members].sort((a, b) =>
+			a.id === $auth.user?.id ? -1 : b.id === $auth.user?.id ? 1 : 0
+		)
+	);
 
 	const MAX_VISIBLE_MEMBERS = 5;
 	const visibleMembers = $derived(sortedMembers.slice(0, MAX_VISIBLE_MEMBERS));
@@ -17,11 +21,14 @@
 
 	async function handleDelete() {
 		loading = true;
-		const data = await query<{ deleteGroup: boolean }>(`
+		const data = await query<{ deleteGroup: boolean }>(
+			`
 			mutation DeleteGroup($groupId: ID!) {
 				deleteGroup(groupId: $groupId)
 			}
-		`, { groupId: group.id });
+		`,
+			{ groupId: group.id }
+		);
 
 		if (data?.deleteGroup) {
 			toast.success('Group deleted successfully');
@@ -48,7 +55,7 @@
 <svelte:window onkeydowncapture={handleKeydown} />
 
 <div class="modal-backdrop" onclick={onClose} role="presentation">
-	<div class="modal-content" onclick={e => e.stopPropagation()} role="presentation">
+	<div class="modal-content" onclick={(e) => e.stopPropagation()} role="presentation">
 		<header class="modal-header">
 			<h2>Delete Group</h2>
 			<button class="close-btn" onclick={onClose}>&times;</button>
@@ -63,7 +70,7 @@
 			<div class="members-preview">
 				<h3>Current Members ({group.members.length})</h3>
 				<div class="tags-container">
-					{#each visibleMembers as member}
+					{#each visibleMembers as member (member.id)}
 						<span class="member-tag">
 							<span class="avatar">{member.name[0]}</span>
 							<span class="name">{member.name}</span>
@@ -193,7 +200,7 @@
 		font-size: 0.875rem;
 		color: #374151;
 		border: 1px solid #e5e7eb;
-		box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 		font-weight: 500;
 	}
 

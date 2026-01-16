@@ -73,7 +73,7 @@
 
 			// Sync currencies on register
 			fetchAndSyncCurrencies();
-			
+
 			const pendingInvite = localStorage.getItem('pendingInvite');
 			if (pendingInvite) {
 				localStorage.removeItem('pendingInvite');
@@ -94,54 +94,54 @@
 		<form onsubmit={handleRegister} class="auth-form">
 			<h1>Join Dutch</h1>
 
-		<div class="field">
-			<label for="username">Username</label>
-			<input
-				type="text"
-				id="username"
-				bind:value={username}
-				required
-				placeholder="johndoe"
-				class:error={errors.username}
-			/>
-			{#if errors.username}<span class="error-text">{errors.username}</span>{/if}
-		</div>
+			<div class="field">
+				<label for="username">Username</label>
+				<input
+					type="text"
+					id="username"
+					bind:value={username}
+					required
+					placeholder="johndoe"
+					class:error={errors.username}
+				/>
+				{#if errors.username}<span class="error-text">{errors.username}</span>{/if}
+			</div>
 
-		<div class="field">
-			<label for="email">Email</label>
-			<input
-				type="email"
-				id="email"
-				bind:value={email}
-				required
-				placeholder="email@example.com"
-				class:error={errors.email}
-			/>
-			{#if errors.email}<span class="error-text">{errors.email}</span>{/if}
-		</div>
+			<div class="field">
+				<label for="email">Email</label>
+				<input
+					type="email"
+					id="email"
+					bind:value={email}
+					required
+					placeholder="email@example.com"
+					class:error={errors.email}
+				/>
+				{#if errors.email}<span class="error-text">{errors.email}</span>{/if}
+			</div>
 
-		<div class="field">
-			<label for="password">Password</label>
-			<input
-				type="password"
-				id="password"
-				bind:value={password}
-				required
-				placeholder="••••••••"
-				class:error={errors.password}
-			/>
-			{#if errors.password}<span class="error-text">{errors.password}</span>{/if}
-		</div>
+			<div class="field">
+				<label for="password">Password</label>
+				<input
+					type="password"
+					id="password"
+					bind:value={password}
+					required
+					placeholder="••••••••"
+					class:error={errors.password}
+				/>
+				{#if errors.password}<span class="error-text">{errors.password}</span>{/if}
+			</div>
 
-		<button type="submit" disabled={loading}>
-			{loading ? 'Creating account...' : 'Register'}
-		</button>
+			<button type="submit" disabled={loading}>
+				{loading ? 'Creating account...' : 'Register'}
+			</button>
 
-		<p class="switch">
-			Already have an account? <a href="{base}/login">Login here</a>
-		</p>
-	</form>
-</div>
+			<p class="switch">
+				Already have an account? <a href="{base}/login">Login here</a>
+			</p>
+		</form>
+	</div>
 </div>
 
 <style>

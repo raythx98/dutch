@@ -13,15 +13,21 @@
 		<div class="hero-content">
 			<h1>Splitting expenses, <span class="highlight">simplified</span>.</h1>
 			<p class="description">
-				Dutch helps you track shared expenses with friends, family, and housemates. 
-				No more awkward conversations about who owes what.
+				Dutch helps you track shared expenses with friends, family, and housemates. No more awkward
+				conversations about who owes what.
 			</p>
 			<div class="hero-actions">
 				{#if $auth.token}
-					<button class="btn btn-lg btn-primary" onclick={() => goto(`${base}/dashboard`)}>Go to Dashboard</button>
+					<button class="btn btn-lg btn-primary" onclick={() => goto(`${base}/dashboard`)}
+						>Go to Dashboard</button
+					>
 				{:else}
-					<button class="btn btn-lg btn-primary" onclick={() => goto(`${base}/register`)}>Start Splitting for Free</button>
-					<button class="btn btn-lg btn-outline" onclick={() => goto(`${base}/login`)}>Sign In</button>
+					<button class="btn btn-lg btn-primary" onclick={() => goto(`${base}/register`)}
+						>Start Splitting for Free</button
+					>
+					<button class="btn btn-lg btn-primary-outline" onclick={() => goto(`${base}/login`)}
+						>Sign In</button
+					>
 				{/if}
 			</div>
 		</div>
@@ -117,7 +123,15 @@
 		flex-direction: column;
 		background: linear-gradient(to bottom, #f9fafb, #ffffff);
 		color: #111827;
-		font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+		font-family:
+			'Inter',
+			-apple-system,
+			BlinkMacSystemFont,
+			'Segoe UI',
+			Roboto,
+			Helvetica,
+			Arial,
+			sans-serif;
 	}
 
 	.nav {
@@ -129,16 +143,6 @@
 		margin: 0 auto;
 		width: 100%;
 		box-sizing: border-box;
-	}
-
-	.logo {
-		font-weight: 800;
-		color: #111827;
-		/* Using global .logo from app.css for size consistency */
-	}
-
-	.logo span {
-		color: #2563eb;
 	}
 
 	.hero {
@@ -184,48 +188,9 @@
 		flex-wrap: wrap;
 	}
 
-	.btn {
-		padding: 0.75rem 1.5rem;
-		border-radius: 8px;
-		font-weight: 600;
-		cursor: pointer;
-		transition: all 0.2s;
-		border: 1px solid transparent;
-		font-size: 0.875rem;
-	}
-
 	.btn-lg {
 		padding: 1rem 2rem;
 		font-size: 1.125rem;
-	}
-
-	.btn-primary {
-		background: #2563eb;
-		color: white;
-	}
-
-	.btn-primary:hover {
-		background: #1d4ed8;
-		transform: translateY(-1px);
-	}
-
-	.btn-primary:active {
-		transform: scale(0.96);
-	}
-
-	.btn-outline {
-		background: transparent;
-		color: #2563eb;
-		border-color: #2563eb;
-	}
-
-	.btn-outline:hover {
-		background: #eff6ff;
-		transform: translateY(-1px);
-	}
-
-	.btn-outline:active {
-		transform: scale(0.96);
 	}
 
 	.hero-image {
@@ -238,7 +203,9 @@
 	.mock-ui {
 		background: white;
 		border-radius: 12px;
-		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+		box-shadow:
+			0 20px 25px -5px rgba(0, 0, 0, 0.1),
+			0 10px 10px -5px rgba(0, 0, 0, 0.04);
 		width: 100%;
 		max-width: 420px;
 		border: 1px solid #e5e7eb;
@@ -259,9 +226,15 @@
 		height: 10px;
 		border-radius: 50%;
 	}
-	.mock-dot.red { background: #ff5f56; }
-	.mock-dot.yellow { background: #ffbd2e; }
-	.mock-dot.green { background: #27c93f; }
+	.mock-dot.red {
+		background: #ff5f56;
+	}
+	.mock-dot.yellow {
+		background: #ffbd2e;
+	}
+	.mock-dot.green {
+		background: #27c93f;
+	}
 
 	.mock-title {
 		margin-left: 0.75rem;
@@ -292,8 +265,16 @@
 		color: #9ca3af;
 	}
 
-	.m-month { font-size: 0.65rem; font-weight: 700; }
-	.m-day { font-size: 1rem; font-weight: 800; color: #374151; margin-top: -2px; }
+	.m-month {
+		font-size: 0.65rem;
+		font-weight: 700;
+	}
+	.m-day {
+		font-size: 1rem;
+		font-weight: 800;
+		color: #374151;
+		margin-top: -2px;
+	}
 
 	.mock-icon {
 		width: 40px;
@@ -334,8 +315,12 @@
 		white-space: nowrap;
 	}
 
-	.mock-amount.positive { color: #059669; }
-	.mock-amount.negative { color: #dc2626; }
+	.mock-amount.positive {
+		color: #059669;
+	}
+	.mock-amount.negative {
+		color: #dc2626;
+	}
 
 	.features {
 		display: grid;
@@ -353,7 +338,9 @@
 		background: white;
 		border-radius: 16px;
 		border: 1px solid #e5e7eb;
-		transition: transform 0.2s, box-shadow 0.2s;
+		transition:
+			transform 0.2s,
+			box-shadow 0.2s;
 	}
 
 	.feature-card:hover {

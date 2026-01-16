@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
+	import type { User } from '$lib/types';
 
 	let { groupId, onClose, onSuccess } = $props();
 
@@ -25,13 +26,16 @@
 		if (!validate()) return;
 
 		loading = true;
-		const data = await query<{ addMember: any }>(`
+		const data = await query<{ addMember: User }>(
+			`
 			mutation AddMember($groupId: ID!, $identifier: String!) {
 				addMember(groupId: $groupId, identifier: $identifier) {
 					id
 				}
 			}
-		`, { groupId, identifier });
+		`,
+			{ groupId, identifier }
+		);
 
 		if (data) {
 			toast.success('Member added successfully');
@@ -52,7 +56,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="modal-backdrop" onclick={onClose} aria-hidden="true">
-	<div class="modal-content" onclick={e => e.stopPropagation()} aria-hidden="true">
+	<div class="modal-content" onclick={(e) => e.stopPropagation()} aria-hidden="true">
 		<header class="modal-header">
 			<h2>Add Member</h2>
 			<button class="close-btn" onclick={onClose}>&times;</button>
@@ -61,13 +65,13 @@
 		<form onsubmit={handleSubmit}>
 			<div class="form-group">
 				<label for="identifier">Username or Email</label>
-				<input 
-					type="text" 
-					id="identifier" 
+				<input
+					type="text"
+					id="identifier"
 					bind:this={inputRef}
-					bind:value={identifier} 
-					placeholder="Enter username or email" 
-					required 
+					bind:value={identifier}
+					placeholder="Enter username or email"
+					required
 					disabled={loading}
 					class:error={errors.identifier}
 				/>
@@ -116,7 +120,10 @@
 		margin-bottom: 1.5rem;
 	}
 
-	.modal-header h2 { margin: 0; font-size: 1.25rem; }
+	.modal-header h2 {
+		margin: 0;
+		font-size: 1.25rem;
+	}
 
 	.close-btn {
 		background: none;

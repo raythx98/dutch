@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import { auth } from '$lib/auth';
 	import { toast } from '$lib/toast';
 	import { goto } from '$app/navigation';
@@ -13,6 +14,13 @@
 		amount: string;
 		currency: { symbol: string; code: string };
 	}
+
+	interface BalanceItem {
+		amount: string;
+		currency: { symbol: string; code: string };
+	}
+
+	type BalanceResponse = Record<string, { owes: BalanceItem[]; owed: BalanceItem[] }>;
 
 	let groups = $state<Group[]>([]);
 	let loading = $state(true);
@@ -62,10 +70,11 @@
 
 		if (data) {
 			groups = data.groups;
-			
+
 			if (groups.length > 0) {
 				// Construct a single batched query with aliases
-				const queryParts = groups.map(g => `
+				const queryParts = groups.map(
+					(g) => `
 					g_${g.id}: expenses(groupId: "${g.id}") {
 						owes {
 							amount
@@ -76,7 +85,8 @@
 							currency { symbol code }
 						}
 					}
-				`);
+				`
+				);
 
 				const batchedQuery = `
 					query GetAllBalances {
@@ -84,29 +94,35 @@
 					}
 				`;
 
-				const balancesData = await query<Record<string, { owes: any[], owed: any[] }>>(batchedQuery);
+				const balancesData = await query<BalanceResponse>(batchedQuery);
 
 				if (balancesData) {
 					const owedList: Balance[] = [];
 					const owesList: Balance[] = [];
 
-					groups.forEach(group => {
+					groups.forEach((group) => {
 						const expenses = balancesData[`g_${group.id}`];
 						if (expenses) {
 							// Aggregate per group and currency
-							const groupOwed = new Map<string, { amount: number, symbol: string }>();
-							const groupOwes = new Map<string, { amount: number, symbol: string }>();
+							const groupOwed = new SvelteMap<string, { amount: number; symbol: string }>();
+							const groupOwes = new SvelteMap<string, { amount: number; symbol: string }>();
 
-							expenses.owed.forEach(item => {
+							expenses.owed.forEach((item) => {
 								const key = item.currency.code;
 								const current = groupOwed.get(key) || { amount: 0, symbol: item.currency.symbol };
-								groupOwed.set(key, { ...current, amount: current.amount + parseFloat(item.amount) });
+								groupOwed.set(key, {
+									...current,
+									amount: current.amount + parseFloat(item.amount)
+								});
 							});
 
-							expenses.owes.forEach(item => {
+							expenses.owes.forEach((item) => {
 								const key = item.currency.code;
 								const current = groupOwes.get(key) || { amount: 0, symbol: item.currency.symbol };
-								groupOwes.set(key, { ...current, amount: current.amount + parseFloat(item.amount) });
+								groupOwes.set(key, {
+									...current,
+									amount: current.amount + parseFloat(item.amount)
+								});
 							});
 
 							groupOwed.forEach((val, code) => {
@@ -198,11 +214,41 @@
 		<div class="user-info">
 			<span class="welcome-text">Hi, <strong>{$auth.user?.name}</strong></span>
 			<div class="btn-group">
-				<button class="btn btn-secondary btn-icon" onclick={() => goto(`${base}/settings`)} title="Settings">
-					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+				<button
+					class="btn btn-secondary btn-icon"
+					onclick={() => goto(`${base}/settings`)}
+					title="Settings"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						><path
+							d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+						/><circle cx="12" cy="12" r="3" /></svg
+					>
 				</button>
 				<button class="btn btn-secondary btn-icon" onclick={logout} title="Logout">
-					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline
+							points="16 17 21 12 16 7"
+						/><line x1="21" y1="12" x2="9" y2="12" /></svg
+					>
 				</button>
 			</div>
 		</div>
@@ -215,11 +261,12 @@
 				{#if totalOwed.length === 0}
 					<p class="empty-msg">Nobody owes you anything.</p>
 				{:else}
-					{#each totalOwed as balance}
+					{#each totalOwed as balance (balance.currency.code + balance.groupName)}
 						<div class="balance-row">
 							<span class="label">{balance.groupName}</span>
 							<span class="value positive">
-								{balance.currency.symbol}{balance.amount} {balance.currency.code}
+								{balance.currency.symbol}{balance.amount}
+								{balance.currency.code}
 							</span>
 						</div>
 					{/each}
@@ -230,11 +277,12 @@
 				{#if totalOwes.length === 0}
 					<p class="empty-msg">You don't owe anything.</p>
 				{:else}
-					{#each totalOwes as balance}
+					{#each totalOwes as balance (balance.currency.code + balance.groupName)}
 						<div class="balance-row">
 							<span class="label">{balance.groupName}</span>
 							<span class="value negative">
-								{balance.currency.symbol}{balance.amount} {balance.currency.code}
+								{balance.currency.symbol}{balance.amount}
+								{balance.currency.code}
 							</span>
 						</div>
 					{/each}
@@ -246,8 +294,12 @@
 			<div class="section-header">
 				<h2>Your Groups</h2>
 				<div class="header-actions">
-					<button class="btn btn-secondary" onclick={() => showJoinModal = true}>Join Group</button>
-					<button class="btn btn-primary" onclick={() => showCreateModal = true}>Create Group</button>
+					<button class="btn btn-secondary" onclick={() => (showJoinModal = true)}
+						>Join Group</button
+					>
+					<button class="btn btn-primary" onclick={() => (showCreateModal = true)}
+						>Create Group</button
+					>
 				</div>
 			</div>
 
@@ -260,7 +312,7 @@
 				</div>
 			{:else}
 				<div class="groups-grid">
-					{#each groups as group}
+					{#each groups as group (group.id)}
 						<button class="group-card" onclick={() => goto(`${base}/groups/${group.id}`)}>
 							<span class="group-name">{group.name}</span>
 							<span class="chevron">&rarr;</span>
@@ -272,26 +324,34 @@
 	</main>
 
 	{#if showCreateModal}
-		<div class="modal-backdrop" onclick={() => showCreateModal = false} aria-hidden="true">
-			<div class="modal-content" onclick={e => e.stopPropagation()} aria-hidden="true">
+		<div class="modal-backdrop" onclick={() => (showCreateModal = false)} aria-hidden="true">
+			<div class="modal-content" onclick={(e) => e.stopPropagation()} aria-hidden="true">
 				<h3>Create New Group</h3>
 				<form onsubmit={handleCreateGroup}>
 					<div class="form-group">
 						<label for="groupName">Group Name</label>
-						<input 
-							type="text" 
-							id="groupName" 
-							bind:value={newGroupName} 
-							placeholder="e.g. Summer Trip 2025" 
-							required 
+						<input
+							type="text"
+							id="groupName"
+							bind:value={newGroupName}
+							placeholder="e.g. Summer Trip 2025"
+							required
 							disabled={creating}
 							class:error={errors.groupName}
 						/>
 						{#if errors.groupName}<span class="error-text">{errors.groupName}</span>{/if}
 					</div>
 					<div class="modal-actions">
-						<button type="button" class="btn btn-secondary" onclick={() => showCreateModal = false}>Cancel</button>
-						<button type="submit" class="btn btn-primary" disabled={creating || !newGroupName.trim()}>
+						<button
+							type="button"
+							class="btn btn-secondary"
+							onclick={() => (showCreateModal = false)}>Cancel</button
+						>
+						<button
+							type="submit"
+							class="btn btn-primary"
+							disabled={creating || !newGroupName.trim()}
+						>
 							{creating ? 'Creating...' : 'Create Group'}
 						</button>
 					</div>
@@ -301,24 +361,26 @@
 	{/if}
 
 	{#if showJoinModal}
-		<div class="modal-backdrop" onclick={() => showJoinModal = false} aria-hidden="true">
-			<div class="modal-content" onclick={e => e.stopPropagation()} aria-hidden="true">
+		<div class="modal-backdrop" onclick={() => (showJoinModal = false)} aria-hidden="true">
+			<div class="modal-content" onclick={(e) => e.stopPropagation()} aria-hidden="true">
 				<h3>Join a Group</h3>
 				<form onsubmit={handleJoinGroup}>
 					<div class="form-group">
 						<label for="joinCode">Invite Code</label>
-						<input 
-							type="text" 
-							id="joinCode" 
-							bind:value={joinCode} 
-							placeholder="Enter code" 
-							required 
+						<input
+							type="text"
+							id="joinCode"
+							bind:value={joinCode}
+							placeholder="Enter code"
+							required
 							class:error={errors.joinCode}
 						/>
 						{#if errors.joinCode}<span class="error-text">{errors.joinCode}</span>{/if}
 					</div>
 					<div class="modal-actions">
-						<button type="button" class="btn btn-secondary" onclick={() => showJoinModal = false}>Cancel</button>
+						<button type="button" class="btn btn-secondary" onclick={() => (showJoinModal = false)}
+							>Cancel</button
+						>
 						<button type="submit" class="btn btn-primary" disabled={!joinCode.trim()}>
 							Join Group
 						</button>
@@ -329,7 +391,7 @@
 	{/if}
 
 	{#if showLogoutModal}
-		<LogoutModal onClose={() => showLogoutModal = false} />
+		<LogoutModal onClose={() => (showLogoutModal = false)} />
 	{/if}
 </div>
 
@@ -417,12 +479,16 @@
 		border-radius: 8px;
 		text-align: left;
 		width: 100%;
-		transition: border-color 0.2s, box-shadow 0.2s;
+		transition:
+			border-color 0.2s,
+			box-shadow 0.2s;
 	}
 
 	.group-card:hover {
 		border-color: #2563eb;
-		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+		box-shadow:
+			0 4px 6px -1px rgba(0, 0, 0, 0.1),
+			0 2px 4px -1px rgba(0, 0, 0, 0.06);
 		background: white;
 	}
 

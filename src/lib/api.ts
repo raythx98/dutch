@@ -6,9 +6,7 @@ import { goto } from '$app/navigation';
 import { base } from '$app/paths';
 import { dev } from '$app/environment';
 
-const API_URL = dev
-	? 'http://localhost:8080/query'
-	: 'https://161.118.239.148.sslip.io/query';
+const API_URL = dev ? 'http://localhost:8080/query' : 'https://161.118.239.148.sslip.io/query';
 
 export async function query<T>(
 	queryString: string,

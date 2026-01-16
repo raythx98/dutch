@@ -3,8 +3,10 @@
 	import { base } from '$app/paths';
 
 	let { inviteToken, onClose }: { inviteToken: string; onClose: () => void } = $props();
-	
-	const inviteLink = $derived(typeof window !== 'undefined' ? `${window.location.origin}${base}/join/${inviteToken}` : '');
+
+	const inviteLink = $derived(
+		typeof window !== 'undefined' ? `${window.location.origin}${base}/join/${inviteToken}` : ''
+	);
 
 	function copyToClipboard() {
 		navigator.clipboard.writeText(inviteLink);
@@ -24,7 +26,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="modal-backdrop" onclick={onClose} role="presentation">
-	<div class="modal-content" onclick={e => e.stopPropagation()} role="presentation">
+	<div class="modal-content" onclick={(e) => e.stopPropagation()} role="presentation">
 		<header class="modal-header">
 			<h2>Invite to Group</h2>
 			<button class="close-btn" onclick={onClose}>&times;</button>
@@ -37,7 +39,7 @@
 			</div>
 
 			<p>Share this link with friends to invite them to this group.</p>
-			
+
 			<div class="link-container">
 				<input type="text" readonly value={inviteLink} />
 				<button class="btn btn-primary" onclick={copyToClipboard}>Copy</button>
@@ -47,7 +49,20 @@
 				<span class="label">Invite Code:</span>
 				<button class="token-btn" onclick={copyCode} title="Click to copy code">
 					<code class="token">{inviteToken}</code>
-					<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path
+							d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
+						/></svg
+					>
 				</button>
 			</div>
 		</div>

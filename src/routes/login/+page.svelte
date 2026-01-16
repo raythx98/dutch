@@ -62,7 +62,7 @@
 		if (data?.login) {
 			auth.login(data.login.token, { id: data.login.id, name: data.login.name });
 			toast.success(`Welcome back, ${data.login.name}!`);
-			
+
 			// Sync currencies on login
 			fetchAndSyncCurrencies();
 
@@ -81,47 +81,48 @@
 	<header class="auth-header">
 		<a href="{base}/" class="logo">Dutch<span>.</span></a>
 	</header>
-	
+
 	<div class="auth-container">
 		<form onsubmit={handleLogin} class="auth-form">
 			<h1>Login to Dutch</h1>
 
-		<div class="field">
-			<label for="email">Email</label>
-			<input
-				type="email"
-				id="email"
-				bind:value={email}
-				required
-				placeholder="email@example.com"
-				class:error={errors.email}
-			/>
-			{#if errors.email}<span class="error-text">{errors.email}</span>{/if}
-		</div>
+			<div class="field">
+				<label for="email">Email</label>
+				<input
+					type="email"
+					id="email"
+					bind:value={email}
+					required
+					placeholder="email@example.com"
+					class:error={errors.email}
+				/>
+				{#if errors.email}<span class="error-text">{errors.email}</span>{/if}
+			</div>
 
-		<div class="field">
-			<label for="password">Password</label>
-			<input
-				type="password"
-				id="password"
-				bind:value={password}
-				required
-				placeholder="••••••••"
-				class:error={errors.password}
-			/>
-			{#if errors.password}<span class="error-text">{errors.password}</span>{/if}
-		</div>
+			<div class="field">
+				<label for="password">Password</label>
+				<input
+					type="password"
+					id="password"
+					bind:value={password}
+					required
+					placeholder="••••••••"
+					class:error={errors.password}
+				/>
+				{#if errors.password}<span class="error-text">{errors.password}</span>{/if}
+			</div>
 
-		<button type="submit" disabled={loading}>
-			{loading ? 'Logging in...' : 'Login'}
-		</button>
+			<button type="submit" disabled={loading}>
+				{loading ? 'Logging in...' : 'Login'}
+			</button>
 
-		        <p class="switch">
-		            Don't have an account? <a href="{base}/register">Register here</a>
-		        </p>
-		    </form>
+			<p class="switch">
+				Don't have an account? <a href="{base}/register">Register here</a>
+			</p>
+		</form>
 	</div>
 </div>
+
 <style>
 	.auth-page {
 		max-width: 800px;

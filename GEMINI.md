@@ -1,42 +1,54 @@
-# AI Context
+# Dutch Project Context
 
-This file provides persistent context and instructions for AI interactions in this project.
+This file serves as a persistent brain for the Dutch project, documenting architecture, state management, and implementation patterns.
 
-## Project Overview
+## Architecture Overview
 
-- **Name:** dutch
-- **Description:** Alternative to Splitwise
+Dutch is a modern SPA (Single Page Application) built as an alternative to Splitwise.
 
-## Tech Stack
+- **Frontend:** SvelteKit 2 (Svelte 5 Runes)
+- **State Management:** Svelte Stores (legacy) + Svelte 5 Runes (modern)
+- **API:** GraphQL (POST based)
+- **Local Storage:** IndexedDB (for currency caching) and LocalStorage (for auth)
+- **Deployment:** Static Site (GitHub Pages compatible)
 
-- **Frontend:** SvelteKit (TypeScript)
-- **Storage:** IndexedDB
-- **Deployment:** Static GH Pages
-- **Backend:** GraphQL which is run separately on AWS
+## Implementation Details
 
-## Coding Standards & Preferences
+### 1. Reactivity & State
+- **Svelte 5 Runes:** Used within components for local state (`$state`, `$derived`, `$effect`).
+- **Global Stores:** Global state like `auth`, `currencyStore`, and `toast` still use Svelte's `writable` stores for broad accessibility across the app.
+- **SvelteMap:** Used in dashboard and modals for reactive collections that require fine-grained updates in Svelte 5.
 
-- Follow Svelte best practices.
-- Use TypeScript for all new components and logic.
+### 2. Authentication Flow
+- **Storage:** Persisted in `localStorage` under the key `dutch_auth`.
+- **JWT:** Injected into GraphQL requests as a `Bearer` token via the `query` wrapper.
+- **Auth Guard:** Managed in `src/routes/+layout.svelte`. Unauthenticated users are redirected to the landing page (`/`), while authenticated users are redirected away from login/register pages.
 
-## Context & Rules
+### 3. Data & API
+- **GraphQL Wrapper:** `src/lib/api.ts` provides a `query<T>` function that handles:
+    - Token injection.
+    - 401 (Unauthorized) auto-logout and redirect.
+    - 429 (Rate limiting) toast warnings.
+    - Global error reporting via toasts.
+- **Currency Caching:** 
+    - Currencies are fetched from the API and cached in **IndexedDB** (`dutch-db`) to minimize network usage.
+    - `currencyStore` is hydrated from IndexedDB on app load if the user is authenticated.
 
-- base URL is `http://localhost:8080/query`, which is different in production. Backend api contract is provided via `schema.graphql`
-- GraphQL auth is done using bearer/JWT auth, this is obtained via the `register` and `login` mutations
-- Keep the solution lightweight, reduce the number of dependencies needed
-- This is how an error response looks like, code and message is most relevant
+### 4. Routing & Paths
+- **Static Hosting:** The app uses `@sveltejs/adapter-static` with `ssr = false` and `prerender = false`.
+- **Base Path:** Support for subdirectories (like GitHub Pages `/dutch/`) is handled via `$app/paths` and the `base` variable.
 
-```json
-{
-	"errors": [
-		{
-			"message": "Unauthorized",
-			"path": ["groups"],
-			"extensions": {
-				"code": 401
-			}
-		}
-	],
-	"data": null
-}
-```
+### 5. Design System & Styling
+- **Global CSS:** `src/app.css` defines the core design system:
+    - **Variables:** Defined in `:root` (e.g., `--primary-color: #2563eb`).
+    - **Components:** Standardized classes for `.btn`, `.btn-primary`, `.btn-outline`, `.card`, and `.logo`.
+    - **Layout:** Mobile-first approach with container queries (`@container`) used for adaptive balance rows.
+- **Branding:** Consistent "Dutch." logo with a primary-colored dot.
+
+## Coding Standards & Rules
+
+- **Strict Type Safety:** Avoid `any`. All API responses and shared objects should have interfaces in `src/lib/types.ts`.
+- **Component Keys:** Always use keys in `{#each}` blocks for stability (e.g., `{#each items as item (item.id)}`).
+- **Standardized UI:** Use the global utility classes from `app.css` instead of writing local styles for buttons, cards, and inputs.
+- **Runes First:** Prefer `$state` and `$derived` for all new component-level logic.
+- **Async API:** Use the `query` utility for all backend interactions.

@@ -1,17 +1,24 @@
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
 	import type { Expense, User } from '$lib/types';
 
-	let { expense, onClose, onSuccess }: { expense: Expense; onClose: () => void; onSuccess: () => void } = $props();
+	let {
+		expense,
+		onClose,
+		onSuccess
+	}: { expense: Expense; onClose: () => void; onSuccess: () => void } = $props();
 	let loading = $state(false);
 
 	const affectedMembers = $derived.by(() => {
-		const users = new Map<string, User>();
-		expense.payers.forEach(p => users.set(p.user.id, p.user));
-		expense.shares.forEach(s => users.set(s.user.id, s.user));
-		return Array.from(users.values()).sort((a, b) => a.id === $auth.user?.id ? -1 : (b.id === $auth.user?.id ? 1 : 0));
+		const users = new SvelteMap<string, User>();
+		expense.payers.forEach((p) => users.set(p.user.id, p.user));
+		expense.shares.forEach((s) => users.set(s.user.id, s.user));
+		return Array.from(users.values()).sort((a, b) =>
+			a.id === $auth.user?.id ? -1 : b.id === $auth.user?.id ? 1 : 0
+		);
 	});
 
 	const MAX_VISIBLE_MEMBERS = 5;
@@ -20,11 +27,14 @@
 
 	async function handleDelete() {
 		loading = true;
-		const data = await query<{ deleteExpense: boolean }>(`
+		const data = await query<{ deleteExpense: boolean }>(
+			`
 			mutation DeleteExpense($id: ID!) {
 				deleteExpense(expenseId: $id)
 			}
-		`, { id: expense.id });
+		`,
+			{ id: expense.id }
+		);
 
 		if (data?.deleteExpense) {
 			toast.success('Expense deleted successfully');
@@ -51,7 +61,7 @@
 <svelte:window onkeydowncapture={handleKeydown} />
 
 <div class="modal-backdrop" onclick={onClose} role="presentation">
-	<div class="modal-content" onclick={e => e.stopPropagation()} role="presentation">
+	<div class="modal-content" onclick={(e) => e.stopPropagation()} role="presentation">
 		<header class="modal-header">
 			<h2>Delete Expense</h2>
 			<button class="close-btn" onclick={onClose}>&times;</button>
@@ -60,20 +70,25 @@
 		<div class="modal-body">
 			<div class="warning-box">
 				<span class="emoji">⚠️</span>
-				<p>This action is permanent and will delete <strong>{expense.name || 'this expense'}</strong> for all involved members.</p>
+				<p>
+					This action is permanent and will delete <strong>{expense.name || 'this expense'}</strong> for
+					all involved members.
+				</p>
 			</div>
 
 			<div class="expense-preview">
 				<div class="expense-card">
 					<span class="label">Amount</span>
-					<span class="value">{expense.currency.symbol}{expense.amount} {expense.currency.code}</span>
+					<span class="value"
+						>{expense.currency.symbol}{expense.amount} {expense.currency.code}</span
+					>
 				</div>
 			</div>
 
 			<div class="members-preview">
 				<h3>Affected Members ({affectedMembers.length})</h3>
 				<div class="tags-container">
-					{#each visibleMembers as member}
+					{#each visibleMembers as member (member.id)}
 						<span class="member-tag">
 							<span class="avatar">{member.name[0]}</span>
 							<span class="name">{member.name}</span>
@@ -230,7 +245,7 @@
 		font-size: 0.875rem;
 		color: #374151;
 		border: 1px solid #e5e7eb;
-		box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 		font-weight: 500;
 	}
 

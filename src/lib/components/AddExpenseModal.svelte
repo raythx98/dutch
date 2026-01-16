@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { currencyStore, fetchAndSyncCurrencies } from '$lib/currency';
+	import { currencyStore } from '$lib/currency';
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
 	import { onMount } from 'svelte';
-	import type { User, Expense, Currency } from '$lib/types';
+	import type { User, Expense, Currency, Share } from '$lib/types';
 
 	interface Props {
 		groupId: string;
@@ -19,16 +19,16 @@
 
 	let isEditing = $derived(!!expense);
 	let isViewOnly = $state(false);
-	
+
 	let name = $state<string>('');
 	let description = $state<string>('');
 	let amount = $state<string>('');
-	let currencyId = $state<string>(''); 
+	let currencyId = $state<string>('');
 
 	const displayCurrencies = $derived.by(() => {
-		const usedIds = new Set(usedCurrencies.map((c: any) => c.id));
+		const usedIds = new Set(usedCurrencies.map((c: Currency) => c.id));
 		const others = $currencyStore.filter((c: Currency) => !usedIds.has(c.id));
-		
+
 		if (usedCurrencies.length === 0) return $currencyStore;
 		if (others.length === 0) return usedCurrencies;
 
@@ -38,10 +38,10 @@
 			...others
 		];
 	});
-	
+
 	function getLocalDate(date: Date) {
 		const offset = date.getTimezoneOffset();
-		const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+		const localDate = new Date(date.getTime() - offset * 60 * 1000);
 		return localDate.toISOString().slice(0, 10);
 	}
 
@@ -54,7 +54,7 @@
 	let initialDate = new Date();
 	let expenseDate = $state<string>(getLocalDate(initialDate));
 	let expenseTime = $state<string>('00:00');
-	
+
 	$effect.pre(() => {
 		if (expense) {
 			isViewOnly = true;
@@ -73,7 +73,7 @@
 
 	function validate() {
 		const newErrors: Record<string, string> = {};
-		
+
 		if (!name.trim()) {
 			newErrors.name = 'Expense name is required';
 		} else if (name.length > 100) {
@@ -117,7 +117,9 @@
 		return Object.keys(newErrors).length === 0;
 	}
 
-	const sortedMembers = $derived([...members].sort((a, b) => a.id === $auth.user?.id ? -1 : (b.id === $auth.user?.id ? 1 : 0)));
+	const sortedMembers = $derived(
+		[...members].sort((a, b) => (a.id === $auth.user?.id ? -1 : b.id === $auth.user?.id ? 1 : 0))
+	);
 
 	// Payers and Shares state
 	let payers = $state<{ userId: string; amount: string }[]>([]);
@@ -145,8 +147,12 @@
 		};
 	});
 
-	const filteredPayers = $derived(isViewOnly ? payers.filter(p => parseFloat(p.amount) > 0) : payers);
-	const filteredShares = $derived(isViewOnly ? shares.filter(s => parseFloat(s.amount) > 0) : shares);
+	const filteredPayers = $derived(
+		isViewOnly ? payers.filter((p) => parseFloat(p.amount) > 0) : payers
+	);
+	const filteredShares = $derived(
+		isViewOnly ? shares.filter((s) => parseFloat(s.amount) > 0) : shares
+	);
 
 	function getName(member: User | undefined) {
 		if (!member) return 'Unknown';
@@ -156,11 +162,11 @@
 	$effect(() => {
 		if (displayCurrencies.length > 0 && !currencyId) {
 			if (expense) {
-				const found = displayCurrencies.find((c: any) => c.code === expense.currency.code);
+				const found = displayCurrencies.find((c: Currency) => c.code === expense.currency.code);
 				if (found && found.id !== 'separator') currencyId = found.id;
 			} else {
 				// Default to first available currency (skip separator if it happens to be first, though unlikely)
-				const first = displayCurrencies.find((c: any) => c.id !== 'separator');
+				const first = displayCurrencies.find((c: Currency) => c.id !== 'separator');
 				if (first) currencyId = first.id;
 			}
 		}
@@ -170,12 +176,18 @@
 		if (sortedMembers.length > 0 && payers.length === 0) {
 			if (expense) {
 				payers = sortedMembers.map((m: User) => {
-					const existing = expense.payers.find((p: any) => p.user.id === m.id); 
-					return { userId: m.id, amount: existing ? parseFloat(existing.amount).toFixed(2) : '0.00' };
+					const existing = expense.payers.find((p: Share) => p.user.id === m.id);
+					return {
+						userId: m.id,
+						amount: existing ? parseFloat(existing.amount).toFixed(2) : '0.00'
+					};
 				});
 				shares = sortedMembers.map((m: User) => {
-					const existing = expense.shares.find((s: any) => s.user.id === m.id);
-					return { userId: m.id, amount: existing ? parseFloat(existing.amount).toFixed(2) : '0.00' };
+					const existing = expense.shares.find((s: Share) => s.user.id === m.id);
+					return {
+						userId: m.id,
+						amount: existing ? parseFloat(existing.amount).toFixed(2) : '0.00'
+					};
 				});
 			} else {
 				const currentUserId = $auth.user?.id;
@@ -197,7 +209,7 @@
 
 	function distributeEqually(totalStr: string, participants: { userId: string; amount: string }[]) {
 		const total = parseFloat(totalStr);
-		if (isNaN(total) || total <= 0) return participants.map(p => ({ ...p, amount: '0.00' }));
+		if (isNaN(total) || total <= 0) return participants.map((p) => ({ ...p, amount: '0.00' }));
 
 		const count = participants.length;
 		if (count === 0) return participants;
@@ -205,7 +217,7 @@
 		const amountPerPerson = Math.floor((total * 100) / count) / 100;
 		let remaining = Math.round((total - amountPerPerson * count) * 100);
 
-		const newParticipants = participants.map(p => ({ ...p, amount: amountPerPerson.toFixed(2) }));
+		const newParticipants = participants.map((p) => ({ ...p, amount: amountPerPerson.toFixed(2) }));
 
 		const indices = Array.from({ length: count }, (_, i) => i);
 		for (let i = indices.length - 1; i > 0; i--) {
@@ -223,17 +235,17 @@
 
 	function handleAmountChange() {
 		if (isViewOnly) return;
-		const payersWithAmount = payers.filter(p => parseFloat(p.amount) > 0);
+		const payersWithAmount = payers.filter((p) => parseFloat(p.amount) > 0);
 		if (payersWithAmount.length <= 1) {
 			let targetId = $auth.user?.id;
 			if (payersWithAmount.length === 1) {
 				targetId = payersWithAmount[0].userId;
 			} else if (expense) {
-				const originalPayer = expense.payers.find((p: any) => parseFloat(p.amount) > 0);
+				const originalPayer = expense.payers.find((p: Share) => parseFloat(p.amount) > 0);
 				if (originalPayer) targetId = originalPayer.user.id;
 			}
-			
-			payers = payers.map(p => ({
+
+			payers = payers.map((p) => ({
 				...p,
 				amount: p.userId === targetId ? parseFloat(amount || '0').toFixed(2) : '0.00'
 			}));
@@ -248,9 +260,9 @@
 		if (isViewOnly) return;
 		const totalAmount = parseFloat(amount || '0').toFixed(2);
 		if (list === 'payers') {
-			payers = payers.map(p => ({ ...p, amount: p.userId === targetId ? totalAmount : '0.00' }));
+			payers = payers.map((p) => ({ ...p, amount: p.userId === targetId ? totalAmount : '0.00' }));
 		} else {
-			shares = shares.map(s => ({ ...s, amount: s.userId === targetId ? totalAmount : '0.00' }));
+			shares = shares.map((s) => ({ ...s, amount: s.userId === targetId ? totalAmount : '0.00' }));
 		}
 	}
 
@@ -277,33 +289,43 @@
 			amount: totalAmount.toFixed(2),
 			currencyId,
 			expenseAt: expenseAtVal,
-			payers: payers.filter(p => parseFloat(p.amount) > 0).map(p => ({ 
-				userId: p.userId, 
-				amount: parseFloat(p.amount).toFixed(2) 
-			})),
-			shares: shares.filter(s => parseFloat(s.amount) > 0).map(s => ({ 
-				userId: s.userId, 
-				amount: parseFloat(s.amount).toFixed(2) 
-			}))
+			payers: payers
+				.filter((p) => parseFloat(p.amount) > 0)
+				.map((p) => ({
+					userId: p.userId,
+					amount: parseFloat(p.amount).toFixed(2)
+				})),
+			shares: shares
+				.filter((s) => parseFloat(s.amount) > 0)
+				.map((s) => ({
+					userId: s.userId,
+					amount: parseFloat(s.amount).toFixed(2)
+				}))
 		};
 
 		let data;
 		if (isEditing) {
-			data = await query(`
+			data = await query(
+				`
 				mutation EditExpense($id: ID!, $input: ExpenseInput!) {
 					editExpense(expenseId: $id, input: $input) {
 						id
 					}
 				}
-			`, { id: expense?.id, input });
+			`,
+				{ id: expense?.id, input }
+			);
 		} else {
-			data = await query(`
+			data = await query(
+				`
 				mutation AddExpense($groupId: ID!, $input: ExpenseInput!) {
 					addExpense(groupId: $groupId, input: $input) {
 						id
 					}
 				}
-			`, { groupId, input });
+			`,
+				{ groupId, input }
+			);
 		}
 
 		if (data) {
@@ -321,7 +343,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="modal-backdrop" onclick={onClose} aria-hidden="true">
-	<div class="modal-content" onclick={e => e.stopPropagation()} aria-hidden="true">
+	<div class="modal-content" onclick={(e) => e.stopPropagation()} aria-hidden="true">
 		<header class="modal-header">
 			<h2>{isEditing ? (isViewOnly ? 'Expense Details' : 'Edit Expense') : 'Add Expense'}</h2>
 			<button class="close-btn" onclick={onClose}>&times;</button>
@@ -330,12 +352,12 @@
 		<form onsubmit={handleSubmit}>
 			<div class="form-group mb-1">
 				<label for="name">Expense Name</label>
-				<input 
-					type="text" 
-					id="name" 
-					bind:value={name} 
-					placeholder="e.g. Dinner, Groceries" 
-					required 
+				<input
+					type="text"
+					id="name"
+					bind:value={name}
+					placeholder="e.g. Dinner, Groceries"
+					required
 					disabled={isViewOnly}
 					class:error={errors.name}
 				/>
@@ -344,10 +366,10 @@
 
 			<div class="form-group mb-1">
 				<label for="description">Description (Optional)</label>
-				<textarea 
-					id="description" 
-					bind:value={description} 
-					placeholder="Add more details..." 
+				<textarea
+					id="description"
+					bind:value={description}
+					placeholder="Add more details..."
 					disabled={isViewOnly}
 					class:error={errors.description}
 				></textarea>
@@ -360,21 +382,22 @@
 					<div class="input-with-currency" class:error={errors.amount || errors.currency}>
 						<select bind:value={currencyId} disabled={isViewOnly}>
 							<option value="" disabled selected>Select</option>
-							{#each displayCurrencies as curr}
+							{#each displayCurrencies as curr (curr.id)}
 								<option value={curr.id} disabled={curr.id === 'separator'}>
-									{curr.code} {curr.symbol ? `(${curr.symbol})` : ''}
+									{curr.code}
+									{curr.symbol ? `(${curr.symbol})` : ''}
 								</option>
 							{/each}
 						</select>
-						<input 
-							type="number" 
-							id="amount" 
-							step="0.01" 
+						<input
+							type="number"
+							id="amount"
+							step="0.01"
 							bind:this={amountInput}
-							bind:value={amount} 
+							bind:value={amount}
 							oninput={handleAmountChange}
-							placeholder="0.00" 
-							required 
+							placeholder="0.00"
+							required
 							disabled={isViewOnly}
 						/>
 					</div>
@@ -384,8 +407,22 @@
 				<div class="form-group date-time-group">
 					<label for="date">Date & Time</label>
 					<div class="date-time-inputs">
-						<input type="date" id="date" bind:value={expenseDate} required disabled={isViewOnly} class:error={errors.date} />
-						<input type="time" id="time" bind:value={expenseTime} required disabled={isViewOnly} class:error={errors.time} />
+						<input
+							type="date"
+							id="date"
+							bind:value={expenseDate}
+							required
+							disabled={isViewOnly}
+							class:error={errors.date}
+						/>
+						<input
+							type="time"
+							id="time"
+							bind:value={expenseTime}
+							required
+							disabled={isViewOnly}
+							class:error={errors.time}
+						/>
 					</div>
 					{#if errors.date}<span class="error-text">{errors.date}</span>{/if}
 					{#if errors.time}<span class="error-text">{errors.time}</span>{/if}
@@ -396,21 +433,29 @@
 				<div class="split-header">
 					<h3>Paid by</h3>
 					{#if payersDiff || errors.payers}
-						<span class="hint warning">{errors.payers || `${payersDiff?.text} ${payersDiff?.val}`}</span>
+						<span class="hint warning"
+							>{errors.payers || `${payersDiff?.text} ${payersDiff?.val}`}</span
+						>
 					{/if}
 				</div>
 				<div class="share-list">
-					{#each filteredPayers as payer}
+					{#each filteredPayers as payer (payer.userId)}
 						<div class="share-item">
 							<div class="share-user">
-								<span class="name">{getName(members.find((m: any) => m.id === payer.userId))}</span>
+								<span class="name">{getName(members.find((m: User) => m.id === payer.userId))}</span
+								>
 								{#if payer.userId === $auth.user?.id}
 									<div class="me-tag-wrapper"><span class="me-tag">You</span></div>
 								{/if}
 							</div>
 							<div class="share-input-row no-wrap">
 								{#if !isViewOnly}
-									<button type="button" class="quick-btn" title="Pay Full" onclick={() => allocateFull(payer.userId, 'payers')}>100%</button>
+									<button
+										type="button"
+										class="quick-btn"
+										title="Pay Full"
+										onclick={() => allocateFull(payer.userId, 'payers')}>100%</button
+									>
 									<input type="number" step="0.01" bind:value={payer.amount} />
 								{:else}
 									<span class="amount-display">{parseFloat(payer.amount).toFixed(2)}</span>
@@ -420,7 +465,11 @@
 					{/each}
 				</div>
 				{#if !isViewOnly}
-					<button type="button" class="split-equally-btn" onclick={() => payers = distributeEqually(amount, payers)}>Split equally</button>
+					<button
+						type="button"
+						class="split-equally-btn"
+						onclick={() => (payers = distributeEqually(amount, payers))}>Split equally</button
+					>
 				{/if}
 			</div>
 
@@ -428,21 +477,29 @@
 				<div class="split-header">
 					<h3>Split among</h3>
 					{#if sharesDiff || errors.shares}
-						<span class="hint warning">{errors.shares || `${sharesDiff?.text} ${sharesDiff?.val}`}</span>
+						<span class="hint warning"
+							>{errors.shares || `${sharesDiff?.text} ${sharesDiff?.val}`}</span
+						>
 					{/if}
 				</div>
 				<div class="share-list">
-					{#each filteredShares as share}
+					{#each filteredShares as share (share.userId)}
 						<div class="share-item">
 							<div class="share-user">
-								<span class="name">{getName(members.find((m: any) => m.id === share.userId))}</span>
+								<span class="name">{getName(members.find((m: User) => m.id === share.userId))}</span
+								>
 								{#if share.userId === $auth.user?.id}
 									<div class="me-tag-wrapper"><span class="me-tag">You</span></div>
 								{/if}
 							</div>
 							<div class="share-input-row no-wrap">
 								{#if !isViewOnly}
-									<button type="button" class="quick-btn" title="Full Share" onclick={() => allocateFull(share.userId, 'shares')}>100%</button>
+									<button
+										type="button"
+										class="quick-btn"
+										title="Full Share"
+										onclick={() => allocateFull(share.userId, 'shares')}>100%</button
+									>
 									<input type="number" step="0.01" bind:value={share.amount} />
 								{:else}
 									<span class="amount-display">{parseFloat(share.amount).toFixed(2)}</span>
@@ -452,17 +509,23 @@
 					{/each}
 				</div>
 				{#if !isViewOnly}
-					<button type="button" class="split-equally-btn" onclick={() => shares = distributeEqually(amount, shares)}>Split equally</button>
+					<button
+						type="button"
+						class="split-equally-btn"
+						onclick={() => (shares = distributeEqually(amount, shares))}>Split equally</button
+					>
 				{/if}
 			</div>
 
 			<div class="modal-actions">
 				<button type="button" class="btn btn-secondary" onclick={onClose}>Cancel</button>
 				{#if isViewOnly}
-					<button type="button" class="btn btn-primary" onclick={() => isViewOnly = false}>Edit</button>
+					<button type="button" class="btn btn-primary" onclick={() => (isViewOnly = false)}
+						>Edit</button
+					>
 				{:else}
 					<button type="submit" class="btn btn-primary" disabled={loading}>
-						{loading ? 'Saving...' : (isEditing ? 'Update Expense' : 'Add Expense')}
+						{loading ? 'Saving...' : isEditing ? 'Update Expense' : 'Add Expense'}
 					</button>
 				{/if}
 			</div>
@@ -502,7 +565,10 @@
 		margin-bottom: 1.5rem;
 	}
 
-	.modal-header h2 { margin: 0; font-size: 1.25rem; }
+	.modal-header h2 {
+		margin: 0;
+		font-size: 1.25rem;
+	}
 
 	.close-btn {
 		background: none;
@@ -531,7 +597,7 @@
 		color: #374151;
 	}
 
-	.form-group input[type="text"],
+	.form-group input[type='text'],
 	.form-group textarea {
 		padding: 0.625rem;
 		border: 1px solid #d1d5db;
@@ -551,7 +617,9 @@
 		color: #111827;
 	}
 
-	.mb-1 { margin-bottom: 1rem; }
+	.mb-1 {
+		margin-bottom: 1rem;
+	}
 
 	.input-with-currency.error {
 		border-color: #ef4444;
@@ -561,7 +629,7 @@
 		display: flex;
 		gap: 0.5rem;
 	}
-	
+
 	.date-time-inputs input {
 		width: 100%;
 		padding: 0.5rem;
@@ -569,7 +637,10 @@
 		border-radius: 4px;
 	}
 
-	.date-time-inputs input:disabled { background: #f9fafb; color: #111827; }
+	.date-time-inputs input:disabled {
+		background: #f9fafb;
+		color: #111827;
+	}
 
 	.split-section {
 		margin-bottom: 1.5rem;
@@ -592,8 +663,13 @@
 		color: #6b7280;
 	}
 
-	.hint { font-size: 0.8rem; font-weight: 600; }
-	.hint.warning { color: #ef4444; }
+	.hint {
+		font-size: 0.8rem;
+		font-weight: 600;
+	}
+	.hint.warning {
+		color: #ef4444;
+	}
 
 	.share-list {
 		display: flex;
@@ -685,9 +761,13 @@
 		transition: transform 0.2s;
 	}
 
-	.quick-btn:active { transform: scale(0.96); }
+	.quick-btn:active {
+		transform: scale(0.96);
+	}
 
-	.quick-btn:hover { background: #d1d5db; }
+	.quick-btn:hover {
+		background: #d1d5db;
+	}
 
 	.split-equally-btn {
 		background: #f3f4f6;

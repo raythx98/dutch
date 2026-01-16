@@ -30,7 +30,19 @@
 <div class="settings-page">
 	<header class="settings-header">
 		<button class="btn btn-back" onclick={() => goto(`${base}/dashboard`)}>
-			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="20"
+				height="20"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"
+				></polyline></svg
+			>
 			Back
 		</button>
 		<h1>Settings</h1>
@@ -39,7 +51,10 @@
 	<main>
 		<section class="card">
 			<h2>Data Management</h2>
-			<p>Update local cache of currencies from the server. This ensures you have the latest currency codes and symbols.</p>
+			<p>
+				Update local cache of currencies from the server. This ensures you have the latest currency
+				codes and symbols.
+			</p>
 			<button class="btn btn-primary" onclick={handleRefreshCurrencies} disabled={loading}>
 				{loading ? 'Refreshing...' : 'Refresh Now'}
 			</button>
@@ -64,14 +79,6 @@
 	h1 {
 		margin: 0;
 		font-size: 1.25rem;
-	}
-
-	.card {
-		background: white;
-		padding: 1.5rem;
-		border-radius: 8px;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		border: 1px solid #e5e7eb;
 	}
 
 	.card h2 {

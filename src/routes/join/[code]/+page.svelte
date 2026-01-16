@@ -9,7 +9,7 @@
 	import type { User } from '$lib/types';
 
 	const inviteCode = $page.params.code;
-	
+
 	interface PreviewGroup {
 		name: string;
 		members: User[];
@@ -22,7 +22,9 @@
 
 	const MAX_VISIBLE_MEMBERS = 5;
 	const visibleMembers = $derived(group ? group.members.slice(0, MAX_VISIBLE_MEMBERS) : []);
-	const remainingCount = $derived(group ? Math.max(0, group.members.length - MAX_VISIBLE_MEMBERS) : 0);
+	const remainingCount = $derived(
+		group ? Math.max(0, group.members.length - MAX_VISIBLE_MEMBERS) : 0
+	);
 
 	async function fetchPreview() {
 		if (!$auth.token) {
@@ -36,7 +38,8 @@
 		loading = true;
 		error = null;
 
-		const data = await query<{ previewGroup: PreviewGroup }>(`
+		const data = await query<{ previewGroup: PreviewGroup }>(
+			`
 			query PreviewGroup($code: String!) {
 				previewGroup(inviteCode: $code) {
 					name
@@ -46,7 +49,9 @@
 					}
 				}
 			}
-		`, { code: inviteCode || '' });
+		`,
+			{ code: inviteCode || '' }
+		);
 
 		if (data) {
 			group = data.previewGroup;
@@ -58,13 +63,16 @@
 
 	async function handleJoin() {
 		joining = true;
-		const data = await query<{ joinGroup: { id: string } }>(`
+		const data = await query<{ joinGroup: { id: string } }>(
+			`
 			mutation JoinGroup($code: String!) {
 				joinGroup(inviteCode: $code) {
 					id
 				}
 			}
-		`, { code: inviteCode });
+		`,
+			{ code: inviteCode }
+		);
 
 		if (data?.joinGroup) {
 			toast.success(`Successfully joined ${group?.name}!`);
@@ -92,15 +100,49 @@
 			</div>
 		{:else if error}
 			<div class="error-state">
-				<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="error-icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="48"
+					height="48"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					class="error-icon"
+					><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
+						x1="12"
+						y1="16"
+						x2="12.01"
+						y2="16"
+					/></svg
+				>
 				<h2>Invitation Error</h2>
 				<p>{error}</p>
-				<button class="btn btn-primary" onclick={() => goto(`${base}/dashboard`)}>Go to Dashboard</button>
+				<button class="btn btn-primary" onclick={() => goto(`${base}/dashboard`)}
+					>Go to Dashboard</button
+				>
 			</div>
 		{:else if group}
 			<header class="join-header">
 				<div class="invite-icon">
-					<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="32"
+						height="32"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle
+							cx="9"
+							cy="7"
+							r="4"
+						/><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></svg
+					>
 				</div>
 				<h1>Join Group</h1>
 				<p>You've been invited to join <strong>{group.name}</strong></p>
@@ -109,7 +151,7 @@
 			<div class="members-preview">
 				<h3>Group Members ({group.members.length})</h3>
 				<div class="tags-container">
-					{#each visibleMembers as member}
+					{#each visibleMembers as member (member.id)}
 						<span class="member-tag">
 							<span class="avatar">{member.name[0]}</span>
 							<span class="name">{member.name}</span>
@@ -122,7 +164,11 @@
 			</div>
 
 			<div class="actions">
-				<button class="btn btn-secondary" onclick={() => goto(`${base}/dashboard`)} disabled={joining}>Decline</button>
+				<button
+					class="btn btn-secondary"
+					onclick={() => goto(`${base}/dashboard`)}
+					disabled={joining}>Decline</button
+				>
 				<button class="btn btn-primary join-btn" onclick={handleJoin} disabled={joining}>
 					{joining ? 'Joining...' : 'Join'}
 				</button>
@@ -151,7 +197,9 @@
 		background: white;
 		padding: 2.5rem;
 		border-radius: 16px;
-		box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+		box-shadow:
+			0 10px 25px -5px rgba(0, 0, 0, 0.1),
+			0 8px 10px -6px rgba(0, 0, 0, 0.1);
 		width: 100%;
 		max-width: 450px;
 		max-height: 90vh;
@@ -225,7 +273,7 @@
 		font-size: 0.875rem;
 		color: #374151;
 		border: 1px solid #e5e7eb;
-		box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 		font-weight: 500;
 	}
 

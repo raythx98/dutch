@@ -6,7 +6,7 @@
 	import { base } from '$app/paths';
 	import { auth } from '$lib/auth';
 	import { toast } from '$lib/toast';
-	import type { Group, Expense, ExpenseSummary, Currency } from '$lib/types';
+	import type { Group, Expense, ExpenseSummary } from '$lib/types';
 	import AddMemberModal from '$lib/components/AddMemberModal.svelte';
 	import AddExpenseModal from '$lib/components/AddExpenseModal.svelte';
 	import AddRepaymentModal from '$lib/components/AddRepaymentModal.svelte';
@@ -28,12 +28,15 @@
 	let showInvite = $state(false);
 	let editingExpense = $state<Expense | undefined>(undefined);
 	let deletingExpense = $state<Expense | undefined>(undefined);
-	let settlementPrefill = $state<{payerId: string, recipientId: string, amount: string, currencyCode: string} | undefined>(undefined);
+	let settlementPrefill = $state<
+		{ payerId: string; recipientId: string; amount: string; currencyCode: string } | undefined
+	>(undefined);
 
 	async function fetchData() {
 		loading = true;
-		
-		const data = await query<{ group: Group, expenses: ExpenseSummary }>(`
+
+		const data = await query<{ group: Group; expenses: ExpenseSummary }>(
+			`
 			query GetGroupData($groupId: ID!) {
 				group(groupId: $groupId) {
 					id
@@ -80,7 +83,9 @@
 					}
 				}
 			}
-		`, { groupId });
+		`,
+			{ groupId }
+		);
 
 		if (data) {
 			group = data.group;
@@ -92,7 +97,7 @@
 			goto(`${base}/dashboard`);
 			return;
 		}
-		
+
 		loading = false;
 	}
 
@@ -106,8 +111,8 @@
 		const myId = $auth.user?.id;
 		if (!myId) return null;
 
-		const paidByMe = expense.payers.find(p => p.user.id === myId);
-		const myShare = expense.shares.find(s => s.user.id === myId);
+		const paidByMe = expense.payers.find((p) => p.user.id === myId);
+		const myShare = expense.shares.find((s) => s.user.id === myId);
 
 		const paid = paidByMe ? parseFloat(paidByMe.amount) : 0;
 		const share = myShare ? parseFloat(myShare.amount) : 0;
@@ -130,14 +135,25 @@
 		}
 	}
 
-	function openSettlement(payerId: string, recipientId: string, amount: string, currencyCode: string) {
+	function openSettlement(
+		payerId: string,
+		recipientId: string,
+		amount: string,
+		currencyCode: string
+	) {
 		settlementPrefill = { payerId, recipientId, amount, currencyCode };
 		showAddRepayment = true;
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
-			const anyModalOpen = showAddMember || showAddExpense || showAddRepayment || showDeleteGroup || showDeleteExpense || showInvite;
+			const anyModalOpen =
+				showAddMember ||
+				showAddExpense ||
+				showAddRepayment ||
+				showDeleteGroup ||
+				showDeleteExpense ||
+				showInvite;
 			if (!anyModalOpen) {
 				e.preventDefault();
 				goto(`${base}/dashboard`);
@@ -155,7 +171,19 @@
 		<div class="header-top">
 			<div class="title-group">
 				<button class="btn btn-back" onclick={() => goto(`${base}/dashboard`)}>
-					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"
+						></polyline></svg
+					>
 					<span class="back-text">Dashboard</span>
 				</button>
 				{#if group}
@@ -167,13 +195,54 @@
 
 			{#if group}
 				<div class="header-actions">
-					<button class="btn btn-secondary btn-icon" onclick={() => showInvite = true} title="Share Group">
-						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+					<button
+						class="btn btn-secondary btn-icon"
+						onclick={() => (showInvite = true)}
+						title="Share Group"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline
+								points="16 6 12 2 8 6"
+							/><line x1="12" y1="2" x2="12" y2="15" /></svg
+						>
 					</button>
-					<button class="btn btn-danger-outline btn-icon" onclick={() => showDeleteGroup = true} title="Delete Group">
-						<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+					<button
+						class="btn btn-danger-outline btn-icon"
+						onclick={() => (showDeleteGroup = true)}
+						title="Delete Group"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							><polyline points="3 6 5 6 21 6"></polyline><path
+								d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+							></path><line x1="10" y1="11" x2="10" y2="17"></line><line
+								x1="14"
+								y1="11"
+								x2="14"
+								y2="17"
+							></line></svg
+						>
 					</button>
-					<button class="btn btn-primary add-member-top" onclick={() => showAddMember = true}>Add Member</button>
+					<button class="btn btn-primary add-member-top" onclick={() => (showAddMember = true)}
+						>Add Member</button
+					>
 				</div>
 			{/if}
 		</div>
@@ -182,14 +251,20 @@
 			<section class="balance-summary">
 				<div class="card owed">
 					<h3>You are owed</h3>
-					{#each summary.owed as o}
+					{#each summary.owed as o (o.currency.code + o.user.id)}
 						<div class="balance-row">
 							<span class="label">{o.user.name}</span>
 							<div class="owe-actions">
 								<span class="value positive">
-									{o.currency.symbol}{o.amount} {o.currency.code}
+									{o.currency.symbol}{o.amount}
+									{o.currency.code}
 								</span>
-								<button class="btn btn-xs btn-outline" onclick={() => openSettlement(o.user.id, $auth.user?.id || '', o.amount, o.currency.code)}>Settle</button>
+								<button
+									class="btn btn-xs btn-outline"
+									onclick={() =>
+										openSettlement(o.user.id, $auth.user?.id || '', o.amount, o.currency.code)}
+									>Settle</button
+								>
 							</div>
 						</div>
 					{:else}
@@ -198,14 +273,20 @@
 				</div>
 				<div class="card owes">
 					<h3>You owe</h3>
-					{#each summary.owes as o}
+					{#each summary.owes as o (o.currency.code + o.user.id)}
 						<div class="balance-row">
 							<span class="label">{o.user.name}</span>
 							<div class="owe-actions">
 								<span class="value negative">
-									{o.currency.symbol}{o.amount} {o.currency.code}
+									{o.currency.symbol}{o.amount}
+									{o.currency.code}
 								</span>
-								<button class="btn btn-xs btn-outline" onclick={() => openSettlement($auth.user?.id || '', o.user.id, o.amount, o.currency.code)}>Settle</button>
+								<button
+									class="btn btn-xs btn-outline"
+									onclick={() =>
+										openSettlement($auth.user?.id || '', o.user.id, o.amount, o.currency.code)}
+									>Settle</button
+								>
 							</div>
 						</div>
 					{:else}
@@ -216,16 +297,10 @@
 		{/if}
 
 		<nav class="tabs">
-			<button 
-				class:active={activeTab === 'expenses'} 
-				onclick={() => activeTab = 'expenses'}
-			>
+			<button class:active={activeTab === 'expenses'} onclick={() => (activeTab = 'expenses')}>
 				Expenses
 			</button>
-			<button 
-				class:active={activeTab === 'members'} 
-				onclick={() => activeTab = 'members'}
-			>
+			<button class:active={activeTab === 'members'} onclick={() => (activeTab = 'members')}>
 				Members
 			</button>
 		</nav>
@@ -238,36 +313,69 @@
 			<section class="expenses-tab">
 				<div class="tab-header">
 					<div class="actions" style="margin-left: auto;">
-						<button class="btn btn-primary" onclick={() => { editingExpense = undefined; showAddExpense = true; }}>Add Expense</button>
+						<button
+							class="btn btn-primary"
+							onclick={() => {
+								editingExpense = undefined;
+								showAddExpense = true;
+							}}>Add Expense</button
+						>
 					</div>
 				</div>
-				
+
 				<div class="expense-list">
-					{#each summary?.expenses || [] as expense}
+					{#each summary?.expenses || [] as expense (expense.id)}
 						{@const balance = getBalanceForExpense(expense)}
 						<div class="expense-item-container">
-							<div 
-								class="expense-item" 
+							<div
+								class="expense-item"
 								class:repayment-item={expense.type === 'Repayment'}
 								class:generic-item={expense.type === 'Generic'}
 								onclick={() => openEditExpense(expense)}
 								role="button"
 								tabindex="0"
-								onkeydown={e => e.key === 'Enter' && openEditExpense(expense)}
+								onkeydown={(e) => e.key === 'Enter' && openEditExpense(expense)}
 							>
 								<div class="expense-date">
-									<span class="month">{new Date(expense.expenseAt).toLocaleDateString(undefined, {month: 'short'})}</span>
+									<span class="month"
+										>{new Date(expense.expenseAt).toLocaleDateString(undefined, {
+											month: 'short'
+										})}</span
+									>
 									<span class="day">{new Date(expense.expenseAt).getDate()}</span>
 								</div>
-								
+
 								<div class="expense-icon-container">
 									{#if expense.type === 'Repayment'}
 										<div class="expense-icon repayment-icon">
-											<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												width="18"
+												height="18"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2.5"
+												stroke-linecap="round"
+												stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg
+											>
 										</div>
 									{:else}
 										<div class="expense-icon generic-icon">
-											<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/><path d="M16 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/></svg>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												width="18"
+												height="18"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												><path
+													d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"
+												/><path d="M16 8H8" /><path d="M16 12H8" /><path d="M13 16H8" /></svg
+											>
 										</div>
 									{/if}
 								</div>
@@ -276,11 +384,21 @@
 									<div class="expense-name">{expense.name || expense.type}</div>
 									<div class="expense-details">
 										{#if expense.type === 'Repayment'}
-											{@const payer = expense.payers[0]?.user.name === $auth.user?.name ? 'You' : expense.payers[0]?.user.name}
-											{@const recipient = expense.shares[0]?.user.name === $auth.user?.name ? 'you' : expense.shares[0]?.user.name}
+											{@const payer =
+												expense.payers[0]?.user.name === $auth.user?.name
+													? 'You'
+													: expense.payers[0]?.user.name}
+											{@const recipient =
+												expense.shares[0]?.user.name === $auth.user?.name
+													? 'you'
+													: expense.shares[0]?.user.name}
 											<span class="paid-by">{payer} paid {recipient}</span>
 										{:else}
-											<span class="paid-by">Paid by {expense.payers[0]?.user.name === $auth.user?.name ? 'You' : expense.payers[0]?.user.name}</span>
+											<span class="paid-by"
+												>Paid by {expense.payers[0]?.user.name === $auth.user?.name
+													? 'You'
+													: expense.payers[0]?.user.name}</span
+											>
 											<span class="split-info">
 												<span class="dot">&bull;</span>
 												<span>Split among {expense.shares.length} people</span>
@@ -290,8 +408,9 @@
 								</div>
 
 								{#if balance}
-									<div class="expense-balance" 
-										class:positive={expense.type === 'Repayment' ? !balance.isOwed : balance.isOwed} 
+									<div
+										class="expense-balance"
+										class:positive={expense.type === 'Repayment' ? !balance.isOwed : balance.isOwed}
 										class:negative={expense.type === 'Repayment' ? balance.isOwed : !balance.isOwed}
 									>
 										<span class="label">
@@ -302,16 +421,22 @@
 											{/if}
 										</span>
 										<span class="val">
-											{expense.currency.symbol}{balance.amount} {expense.currency.code}
+											{expense.currency.symbol}{balance.amount}
+											{expense.currency.code}
 										</span>
 									</div>
 								{/if}
 
 								<div class="expense-amount">
-									{expense.currency.symbol}{expense.amount} {expense.currency.code}
+									{expense.currency.symbol}{expense.amount}
+									{expense.currency.code}
 								</div>
 
-								<button class="delete-btn" onclick={(e) => handleDeleteExpense(e, expense)} title="Delete">&times;</button>
+								<button
+									class="delete-btn"
+									onclick={(e) => handleDeleteExpense(e, expense)}
+									title="Delete">&times;</button
+								>
 							</div>
 						</div>
 					{:else}
@@ -324,12 +449,14 @@
 		{:else if activeTab === 'members'}
 			<section class="members-tab">
 				{#if group}
-					{@const sortedMembers = [...group.members].sort((a, b) => a.id === $auth.user?.id ? -1 : (b.id === $auth.user?.id ? 1 : 0))}
+					{@const sortedMembers = [...group.members].sort((a, b) =>
+						a.id === $auth.user?.id ? -1 : b.id === $auth.user?.id ? 1 : 0
+					)}
 					<ul class="member-list">
-						{#each sortedMembers as member}
+						{#each sortedMembers as member (member.id)}
 							<li>
 								<span class="name">
-									{member.name} 
+									{member.name}
 									{#if member.id === $auth.user?.id}
 										<strong class="me-tag" style="margin-left: 0.5rem">You</strong>
 									{/if}
@@ -343,56 +470,76 @@
 	</main>
 
 	{#if showAddMember}
-		<AddMemberModal 
-			groupId={groupId} 
-			onClose={() => showAddMember = false} 
-			onSuccess={() => { showAddMember = false; fetchData(); }} 
+		<AddMemberModal
+			{groupId}
+			onClose={() => (showAddMember = false)}
+			onSuccess={() => {
+				showAddMember = false;
+				fetchData();
+			}}
 		/>
 	{/if}
 
 	{#if showAddExpense && group}
-		<AddExpenseModal 
-			groupId={groupId} 
+		<AddExpenseModal
+			{groupId}
 			members={group.members}
 			expense={editingExpense}
 			usedCurrencies={group.usedCurrencies}
-			onClose={() => { showAddExpense = false; editingExpense = undefined; }} 
-			onSuccess={() => { showAddExpense = false; editingExpense = undefined; fetchData(); }} 
+			onClose={() => {
+				showAddExpense = false;
+				editingExpense = undefined;
+			}}
+			onSuccess={() => {
+				showAddExpense = false;
+				editingExpense = undefined;
+				fetchData();
+			}}
 		/>
 	{/if}
 
 	{#if showAddRepayment && group}
-		<AddRepaymentModal 
-			groupId={groupId} 
-			members={group.members} 
+		<AddRepaymentModal
+			{groupId}
+			members={group.members}
 			expense={editingExpense}
 			prefill={settlementPrefill}
 			usedCurrencies={group.usedCurrencies}
-			onClose={() => { showAddRepayment = false; editingExpense = undefined; settlementPrefill = undefined; }} 
-			onSuccess={() => { showAddRepayment = false; editingExpense = undefined; settlementPrefill = undefined; fetchData(); }} 
+			onClose={() => {
+				showAddRepayment = false;
+				editingExpense = undefined;
+				settlementPrefill = undefined;
+			}}
+			onSuccess={() => {
+				showAddRepayment = false;
+				editingExpense = undefined;
+				settlementPrefill = undefined;
+				fetchData();
+			}}
 		/>
 	{/if}
 
 	{#if showDeleteGroup && group}
-		<DeleteGroupModal 
-			group={group}
-			onClose={() => showDeleteGroup = false}
-		/>
+		<DeleteGroupModal {group} onClose={() => (showDeleteGroup = false)} />
 	{/if}
 
 	{#if showDeleteExpense && deletingExpense}
-		<DeleteExpenseModal 
+		<DeleteExpenseModal
 			expense={deletingExpense}
-			onClose={() => { showDeleteExpense = false; deletingExpense = undefined; }}
-			onSuccess={() => { showDeleteExpense = false; deletingExpense = undefined; fetchData(); }}
+			onClose={() => {
+				showDeleteExpense = false;
+				deletingExpense = undefined;
+			}}
+			onSuccess={() => {
+				showDeleteExpense = false;
+				deletingExpense = undefined;
+				fetchData();
+			}}
 		/>
 	{/if}
 
 	{#if showInvite && group}
-		<InviteModal 
-			inviteToken={group.inviteToken || ''}
-			onClose={() => showInvite = false}
-		/>
+		<InviteModal inviteToken={group.inviteToken || ''} onClose={() => (showInvite = false)} />
 	{/if}
 </div>
 
@@ -450,17 +597,6 @@
 
 	.header-actions .btn-icon {
 		padding: 0;
-	}
-
-	.btn-danger-outline {
-		background: white;
-		border: 1px solid #fee2e2;
-		color: #ef4444;
-	}
-
-	.btn-danger-outline:hover {
-		background: #fef2f2;
-		border-color: #fecaca;
 	}
 
 	.balance-summary {
@@ -634,7 +770,10 @@
 		display: inline;
 	}
 
-	.dot { color: #d1d5db; margin: 0 0.25rem; }
+	.dot {
+		color: #d1d5db;
+		margin: 0 0.25rem;
+	}
 
 	.expense-balance {
 		display: flex;
@@ -654,15 +793,19 @@
 		white-space: nowrap;
 	}
 
-	.expense-balance .val { 
-		font-weight: 600; 
+	.expense-balance .val {
+		font-weight: 600;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		max-width: 100%;
 	}
-	.expense-balance.positive .val { color: #059669; }
-	.expense-balance.negative .val { color: #dc2626; }
+	.expense-balance.positive .val {
+		color: #059669;
+	}
+	.expense-balance.negative .val {
+		color: #dc2626;
+	}
 
 	.expense-amount {
 		font-weight: 700;
@@ -693,19 +836,27 @@
 		margin-left: 0.5rem;
 	}
 
-	.delete-btn:hover { color: #ef4444; }
+	.delete-btn:hover {
+		color: #ef4444;
+	}
 
 	/* Column Disappearing logic based on container width */
 	@container (max-width: 700px) {
-		.split-info { display: none; }
+		.split-info {
+			display: none;
+		}
 	}
 
 	@container (max-width: 570px) {
-		.expense-icon-container { display: none; }
+		.expense-icon-container {
+			display: none;
+		}
 	}
 
 	@container (max-width: 530px) {
-		.expense-amount { display: none; }
+		.expense-amount {
+			display: none;
+		}
 	}
 
 	.member-list {
@@ -778,7 +929,7 @@
 		.expense-item {
 			padding: 0.75rem;
 		}
-		
+
 		.expense-amount {
 			font-size: 1.1rem;
 		}
