@@ -682,7 +682,10 @@
 		cursor: pointer;
 		color: #4b5563;
 		flex-shrink: 0;
+		transition: transform 0.2s;
 	}
+
+	.quick-btn:active { transform: scale(0.96); }
 
 	.quick-btn:hover { background: #d1d5db; }
 
@@ -698,6 +701,10 @@
 		transition: all 0.2s;
 		display: inline-block;
 		margin-top: 0.5rem;
+	}
+
+	.split-equally-btn:active {
+		transform: scale(0.96);
 	}
 
 	.split-equally-btn:hover {

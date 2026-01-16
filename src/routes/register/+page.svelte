@@ -236,6 +236,16 @@
 		font-weight: 600;
 		cursor: pointer;
 		margin-top: 1rem;
+		transition: all 0.2s;
+	}
+
+	button:hover:not(:disabled) {
+		background: #4338ca;
+		transform: translateY(-1px);
+	}
+
+	button:active:not(:disabled) {
+		transform: scale(0.96);
 	}
 
 	button:disabled {

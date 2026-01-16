@@ -6,7 +6,7 @@
 
 <div class="landing-page">
 	<nav class="nav">
-		<div class="logo">Dutch<span>.</span></div>
+		<a href="{base}/" class="logo">Dutch<span>.</span></a>
 	</nav>
 
 	<main class="hero">
@@ -209,6 +209,10 @@
 		transform: translateY(-1px);
 	}
 
+	.btn-primary:active {
+		transform: scale(0.96);
+	}
+
 	.btn-outline {
 		background: transparent;
 		color: #2563eb;
@@ -217,6 +221,11 @@
 
 	.btn-outline:hover {
 		background: #eff6ff;
+		transform: translateY(-1px);
+	}
+
+	.btn-outline:active {
+		transform: scale(0.96);
 	}
 
 	.hero-image {

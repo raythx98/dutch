@@ -495,6 +495,11 @@
 		font-weight: 600;
 		color: #6b7280;
 		font-size: 1rem;
+		transition: transform 0.2s;
+	}
+
+	.tabs button:active {
+		transform: scale(0.96);
 	}
 
 	.tabs button.active {
