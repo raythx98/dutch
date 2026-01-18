@@ -8,6 +8,19 @@ import { dev } from '$app/environment';
 
 const API_URL = dev ? 'http://localhost:8080/query' : 'https://161.118.239.148.sslip.io/query';
 
+function handleUnauthorized() {
+	const { token } = get(auth);
+
+	if (token) {
+		auth.logout();
+		toast.error('Session expired. Please log in again.');
+	}
+
+	if (typeof window !== 'undefined' && !window.location.pathname.endsWith('/login')) {
+		goto(`${base}/login`);
+	}
+}
+
 export async function query<T>(
 	queryString: string,
 	variables: Record<string, unknown> = {}
@@ -33,9 +46,7 @@ export async function query<T>(
 		});
 
 		if (response.status === 401) {
-			auth.logout();
-			toast.error('Session expired. Please log in again.');
-			goto(`${base}/login`);
+			handleUnauthorized();
 			return null;
 		}
 
@@ -47,6 +58,21 @@ export async function query<T>(
 		const result = await response.json();
 
 		if (result.errors) {
+			const isUnauthorized = result.errors.some(
+				(error: { extensions?: { code?: number } }) => error.extensions?.code === 401
+			);
+
+			if (isUnauthorized) {
+				handleUnauthorized();
+				return null;
+			}
+
+			// Suppress secondary toasts ONLY if we just performed an auto-logout.
+			// If we had a token when we started, but now we don't, it means handleUnauthorized was called.
+			if (token && !get(auth).token) {
+				return null;
+			}
+
 			const message = result.errors[0]?.message || 'An unknown error occurred';
 			toast.error(message);
 			return null;
@@ -54,6 +80,9 @@ export async function query<T>(
 
 		return result.data as T;
 	} catch (error) {
+		if (token && !get(auth).token) {
+			return null;
+		}
 		console.error('API Error:', error);
 		toast.error('Connection error. Please try again later.');
 		return null;

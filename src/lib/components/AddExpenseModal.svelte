@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { currencyStore } from '$lib/currency';
+	import { currencyStore, guessedCurrencyCode } from '$lib/currency';
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
@@ -27,13 +27,27 @@
 
 	const displayCurrencies = $derived.by(() => {
 		const usedIds = new Set(usedCurrencies.map((c: Currency) => c.id));
-		const others = $currencyStore.filter((c: Currency) => !usedIds.has(c.id));
+		
+		// Find guessed currency in the full store
+		const guessedCurrency = $currencyStore.find(
+			(c: Currency) => c.code === $guessedCurrencyCode
+		);
+		
+		const topSection = [...usedCurrencies];
+		
+		// Add guessed currency if it's not already in usedCurrencies
+		if (guessedCurrency && !usedIds.has(guessedCurrency.id)) {
+			topSection.push(guessedCurrency);
+		}
+		
+		const priorityIds = new Set(topSection.map(c => c.id));
+		const others = $currencyStore.filter((c: Currency) => !priorityIds.has(c.id));
 
-		if (usedCurrencies.length === 0) return $currencyStore;
-		if (others.length === 0) return usedCurrencies;
+		if (topSection.length === 0) return $currencyStore;
+		if (others.length === 0) return topSection;
 
 		return [
-			...usedCurrencies,
+			...topSection,
 			{ id: 'separator', code: '──────────', symbol: '', name: 'Separator' },
 			...others
 		];
@@ -165,7 +179,7 @@
 				const found = displayCurrencies.find((c: Currency) => c.code === expense.currency.code);
 				if (found && found.id !== 'separator') currencyId = found.id;
 			} else {
-				// Default to first available currency (skip separator if it happens to be first, though unlikely)
+				// Default to first available currency in the prioritized list
 				const first = displayCurrencies.find((c: Currency) => c.id !== 'separator');
 				if (first) currencyId = first.id;
 			}

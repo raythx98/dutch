@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import { query } from '$lib/api';
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { auth } from '$lib/auth';
@@ -90,6 +91,11 @@
 		if (data) {
 			group = data.group;
 			summary = data.expenses;
+		}
+
+		// If data is null, it might be due to 401 which is already handled in api.ts
+		if (!data && !get(auth).token) {
+			return;
 		}
 
 		if (!group) {

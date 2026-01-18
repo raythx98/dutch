@@ -22,12 +22,13 @@ Dutch is a modern SPA (Single Page Application) built as an alternative to Split
 ### 2. Authentication Flow
 - **Storage:** Persisted in `localStorage` under the key `dutch_auth`.
 - **JWT:** Injected into GraphQL requests as a `Bearer` token via the `query` wrapper.
-- **Auth Guard:** Managed in `src/routes/+layout.svelte`. Unauthenticated users are redirected to the landing page (`/`), while authenticated users are redirected away from login/register pages.
+- **Auth Guard:** Managed in `src/routes/+layout.svelte`. Unauthenticated users are redirected to the login page (`/login`), while authenticated users are redirected away from login/register pages. Redirection logic explicitly accounts for the `base` path to support subfolder hosting.
 
 ### 3. Data & API
 - **GraphQL Wrapper:** `src/lib/api.ts` provides a `query<T>` function that handles:
     - Token injection.
-    - 401 (Unauthorized) auto-logout and redirect.
+    - **401 (Unauthorized) Handling:** Detects both HTTP 401 status and GraphQL error codes (`extensions.code === 401`).
+    - **Toast Suppression:** To prevent multiple "Session expired" or irrelevant errors (e.g., "Group not found") when a session ends, the wrapper checks the synchronous state of the `auth` store. If the token is already cleared, subsequent toasts are suppressed.
     - 429 (Rate limiting) toast warnings.
     - Global error reporting via toasts.
 - **Currency Caching:** 
