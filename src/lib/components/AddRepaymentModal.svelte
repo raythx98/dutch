@@ -36,12 +36,12 @@
 
 	const displayCurrencies = $derived.by(() => {
 		const usedIds = new Set(usedCurrencies.map((c: Currency) => c.id));
-		
+
 		// Find guessed currency if it's not already in usedCurrencies
 		const guessedCurrency = $currencyStore.find(
 			(c: Currency) => c.code === $guessedCurrencyCode && !usedIds.has(c.id)
 		);
-		
+
 		const priorityIds = new Set([...usedIds]);
 		if (guessedCurrency) priorityIds.add(guessedCurrency.id);
 

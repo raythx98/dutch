@@ -26,7 +26,7 @@
 		group ? Math.max(0, group.members.length - MAX_VISIBLE_MEMBERS) : 0
 	);
 
-	async function fetchPreview() {
+	async function load() {
 		if (!$auth.token) {
 			if (inviteCode) {
 				localStorage.setItem('pendingInvite', inviteCode);
@@ -38,8 +38,9 @@
 		loading = true;
 		error = null;
 
-		const data = await query<{ previewGroup: PreviewGroup }>(
-			`
+		const [previewData, groupsData] = await Promise.all([
+			query<{ previewGroup: PreviewGroup }>(
+				`
 			query PreviewGroup($code: String!) {
 				previewGroup(inviteCode: $code) {
 					name
@@ -50,11 +51,33 @@
 				}
 			}
 		`,
-			{ code: inviteCode || '' }
-		);
+				{ code: inviteCode || '' }
+			),
+			query<{ groups: { id: string; inviteToken: string }[] }>(
+				`
+			query CheckMembership {
+				groups {
+					id
+					inviteToken
+				}
+			}
+			`
+			)
+		]);
 
-		if (data) {
-			group = data.previewGroup;
+		// Check if already a member
+		if (groupsData?.groups) {
+			const existingGroup = groupsData.groups.find((g) => g.inviteToken === inviteCode);
+			if (existingGroup) {
+				toast.success(`You are already a member of this group`);
+				goto(`${base}/groups/${existingGroup.id}`);
+				return;
+			}
+		}
+
+		// Handle preview data
+		if (previewData) {
+			group = previewData.previewGroup;
 		} else {
 			error = 'Invalid or expired invite link';
 		}
@@ -87,7 +110,7 @@
 		if (e.key === 'Enter' && group && !joining) handleJoin();
 	}
 
-	onMount(fetchPreview);
+	onMount(load);
 </script>
 
 <svelte:window onkeydown={handleKeydown} />

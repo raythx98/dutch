@@ -27,20 +27,18 @@
 
 	const displayCurrencies = $derived.by(() => {
 		const usedIds = new Set(usedCurrencies.map((c: Currency) => c.id));
-		
+
 		// Find guessed currency in the full store
-		const guessedCurrency = $currencyStore.find(
-			(c: Currency) => c.code === $guessedCurrencyCode
-		);
-		
+		const guessedCurrency = $currencyStore.find((c: Currency) => c.code === $guessedCurrencyCode);
+
 		const topSection = [...usedCurrencies];
-		
+
 		// Add guessed currency if it's not already in usedCurrencies
 		if (guessedCurrency && !usedIds.has(guessedCurrency.id)) {
 			topSection.push(guessedCurrency);
 		}
-		
-		const priorityIds = new Set(topSection.map(c => c.id));
+
+		const priorityIds = new Set(topSection.map((c) => c.id));
 		const others = $currencyStore.filter((c: Currency) => !priorityIds.has(c.id));
 
 		if (topSection.length === 0) return $currencyStore;
