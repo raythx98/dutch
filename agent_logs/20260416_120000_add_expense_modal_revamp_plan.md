@@ -64,6 +64,7 @@ let shareAmounts = $state<Record<string, string>>({});
 ### Initialization
 
 **New expense:**
+
 - `payerIncluded`: only `$auth.user?.id` → true; rest → false
 - `shareIncluded`: all → true
 - `payerRatios` / `shareRatios`: all → 1
@@ -71,6 +72,7 @@ let shareAmounts = $state<Record<string, string>>({});
 - Initial `payerAmounts` / `shareAmounts`: auto-calculated on first render
 
 **Editing existing expense:**
+
 - `payerIncluded`: true if amount > 0 in expense.payers
 - `shareIncluded`: true if amount > 0 in expense.shares
 - `payerRatios` / `shareRatios`: all → 1 (can't reverse-engineer original ratios)
@@ -81,10 +83,10 @@ let shareAmounts = $state<Record<string, string>>({});
 
 ```typescript
 function distributeByRatio(
-  totalStr: string,
-  included: Record<string, string[]>,  // just the included userId list
-  ratios: Record<string, number>
-): Record<string, string>
+	totalStr: string,
+	included: Record<string, string[]>, // just the included userId list
+	ratios: Record<string, number>
+): Record<string, string>;
 ```
 
 1. Parse total as cents (integer)
@@ -100,21 +102,17 @@ Two separate effects:
 
 ```typescript
 $effect(() => {
-  if (!payerUseRatios) return;
-  const total = parseFloat(amount || '0');
-  const includedIds = sortedMembers
-    .filter(m => payerIncluded[m.id])
-    .map(m => m.id);
-  payerAmounts = distributeByRatio(total, includedIds, payerRatios);
+	if (!payerUseRatios) return;
+	const total = parseFloat(amount || '0');
+	const includedIds = sortedMembers.filter((m) => payerIncluded[m.id]).map((m) => m.id);
+	payerAmounts = distributeByRatio(total, includedIds, payerRatios);
 });
 
 $effect(() => {
-  if (!shareUseRatios) return;
-  const total = parseFloat(amount || '0');
-  const includedIds = sortedMembers
-    .filter(m => shareIncluded[m.id])
-    .map(m => m.id);
-  shareAmounts = distributeByRatio(total, includedIds, shareRatios);
+	if (!shareUseRatios) return;
+	const total = parseFloat(amount || '0');
+	const includedIds = sortedMembers.filter((m) => shareIncluded[m.id]).map((m) => m.id);
+	shareAmounts = distributeByRatio(total, includedIds, shareRatios);
 });
 ```
 
@@ -135,6 +133,7 @@ No `handlePayerAmountChange` function required. The `$effect` that recalculates 
 ### Main Amount Input Change
 
 When total amount changes:
+
 - If `payerUseRatios` is true → effect recalculates automatically (reads new `amount`)
 - If `payerUseRatios` is false → only update single-payer shortcut: if exactly 1 included payer, set their amount to the new total
 
@@ -142,17 +141,17 @@ When total amount changes:
 
 ```typescript
 const payers = $derived(
-  sortedMembers.map(m => ({
-    userId: m.id,
-    amount: payerAmounts[m.id] || '0.00'
-  }))
+	sortedMembers.map((m) => ({
+		userId: m.id,
+		amount: payerAmounts[m.id] || '0.00'
+	}))
 );
 
 const shares = $derived(
-  sortedMembers.map(m => ({
-    userId: m.id,
-    amount: shareAmounts[m.id] || '0.00'
-  }))
+	sortedMembers.map((m) => ({
+		userId: m.id,
+		amount: shareAmounts[m.id] || '0.00'
+	}))
 );
 ```
 
@@ -161,6 +160,7 @@ Existing `payersDiff` / `sharesDiff` / `filteredPayers` / `filteredShares` deriv
 ### Template Changes
 
 **Each row in "Paid by":**
+
 ```
 [checkbox] [name] [me-tag]         [ratio input]  [amount display/input]
 ```
@@ -170,6 +170,7 @@ Existing `payersDiff` / `sharesDiff` / `filteredPayers` / `filteredShares` deriv
 - Amount: when `payerUseRatios` is true → `<span class="amount-display">` (read-only); when false → `<input type="number" bind:value={payerAmounts[m.id]}>` (editable, disabled if member excluded)
 
 **Section header addition:**
+
 ```
 <label class="ratio-toggle">
   <input type="checkbox" bind:checked={payerUseRatios} />
@@ -190,8 +191,8 @@ Existing `payersDiff` / `sharesDiff` / `filteredPayers` / `filteredShares` deriv
 
 ## Files to Change
 
-| File | Changes |
-|------|---------|
+| File                                        | Changes                                         |
+| ------------------------------------------- | ----------------------------------------------- |
 | `src/lib/components/AddExpenseModal.svelte` | Major — script state refactor + template update |
 
 ## New Files
@@ -200,12 +201,117 @@ None.
 
 ---
 
+## Reverse-Engineering Ratios on Toggle ON
+
+### Trigger
+
+Whenever the "Use ratios" toggle is turned **ON** (from OFF → ON) — in **both add and edit modes** — reverse-engineer ratios from the **current `payerAmounts` / `shareAmounts`** for the included members, then let the recalculation `$effect` take over.
+
+This covers two practical flows:
+
+- **Edit expense**: user clicks Edit, amends individual amounts manually, then switches to ratio mode to continue working proportionally.
+- **Add expense**: user unchecks "Use ratios" and enters amounts by hand, then re-enables it to re-derive ratios from what they typed.
+
+### Implementation
+
+Replace `bind:checked` on both ratio toggles with explicit `onchange` handlers:
+
+```typescript
+function handleUseRatiosToggle(section: 'payers' | 'shares', enabled: boolean) {
+	if (enabled) {
+		// Reverse-engineer before the recalculation effect fires
+		if (section === 'payers') {
+			const includedIds = sortedMembers.filter((m) => payerIncluded[m.id]).map((m) => m.id);
+			const reversed = reverseEngineerRatios(
+				includedIds.map((id) => payerAmounts[id] ?? 0),
+				parseFloat(amount)
+			);
+			includedIds.forEach((id, i) => {
+				payerRatios[id] = reversed[i];
+			});
+			payerUseRatios = true;
+		} else {
+			const includedIds = sortedMembers.filter((m) => shareIncluded[m.id]).map((m) => m.id);
+			const reversed = reverseEngineerRatios(
+				includedIds.map((id) => shareAmounts[id] ?? 0),
+				parseFloat(amount)
+			);
+			includedIds.forEach((id, i) => {
+				shareRatios[id] = reversed[i];
+			});
+			shareUseRatios = true;
+		}
+	} else {
+		if (section === 'payers') payerUseRatios = false;
+		else shareUseRatios = false;
+	}
+}
+```
+
+When toggling OFF, no reverse-engineering — just flip the toggle, amounts remain as-is and become editable.
+
+### `reverseEngineerRatios` Algorithm
+
+**Input**: `amounts: number[]` (included members' dollar amounts), `total: number`
+
+**Goal**: smallest integer ratios that reproduce the amounts within ±1 cent each via `distributeByRatio`.
+
+**Steps**:
+
+1. Convert to cents: `c[i] = round(amounts[i] * 100)`, `T = round(total * 100)`
+2. For `scale` = 1 to `MAX_SCALE` (100):
+   - Candidates: `r[i] = round(c[i] / T * scale)`
+   - Skip if any `r[i] <= 0`
+   - Simulate: `sim[i] = floor(r[i] / sum(r) * T)`
+   - Accept if `|sim[i] − c[i]| ≤ 1` for every `i`
+   - **Return first accepted `r[]`** (smallest integers win)
+3. **Fallback** if no scale succeeded: GCD-based exact ratios
+   - `g = gcd(c[0], …, c[n−1])`
+   - Return `c[i] / g`
+
+**Why scale-scan first**: always returns the simplest ratio. Scale 1 finds 1:1; scale 3 finds 2:1 or 3:1; scale 6 finds 3:2:1. Most real-world splits resolve by scale ≤ 20.
+
+### Rounding Rules
+
+| Input amounts                               | Expected output          | Why                                      |
+| ------------------------------------------- | ------------------------ | ---------------------------------------- |
+| 33.34 / 33.33 / 33.33 (total 100)           | 1:1:1                    | ±1¢ tolerance absorbs the rounding penny |
+| 66.67 / 33.33 (total 100)                   | 2:1                      | Found at scale 3                         |
+| 50.00 / 33.33 / 16.67 (total 100)           | 3:2:1                    | Found at scale 6                         |
+| 100.00 / 0 / 0 (total 100)                  | 1 (only included member) | Excluded members skipped                 |
+| 41.00 / 59.00 (manually entered, total 100) | 41:59 via GCD fallback   | No nice ratio exists                     |
+| Single included member                      | [1]                      | Trivially scale 1                        |
+
+**Edge cases**:
+
+- If `total` is 0 or amounts are all 0 → return `[1, 1, …, 1]` (equal default)
+- Excluded members keep their existing ratio value (unchanged by reverse-engineering)
+
+### GCD Helper
+
+```typescript
+function gcdTwo(a: number, b: number): number {
+	return b === 0 ? a : gcdTwo(b, a % b);
+}
+```
+
+---
+
 ## Tradeoffs / Assumptions
 
-1. **Editing an existing expense** starts in manual mode (`useRatios = false`) — original ratios can't be reverse-engineered from saved amounts. Ratios reset to 1 for all included users.
-2. Amounts are **only** editable when "Use ratios" is OFF — no auto-toggle on amount edit; the user must explicitly uncheck the toggle to enter manual mode.
-3. When the ratio toggle is flipped back ON, it immediately recalculates from the current ratios (does not reset ratios to 1).
-4. Both "Paid by" and "Split among" have independent ratio toggles.
+1. **Editing an existing expense** starts in manual mode (`useRatios = false`) — amounts loaded from expense data.
+2. **New expense** starts in ratio mode (`useRatios = true`) — amounts auto-calculated from default ratios.
+3. Amounts are **only** editable when "Use ratios" is OFF.
+4. When "Use ratios" is toggled **ON** (either section, either mode), ratios are **reverse-engineered** from current amounts before the recalculation `$effect` fires. Ratios are never silently reset to 1.
+5. Both "Paid by" and "Split among" have independent toggle handlers.
+
+---
+
+## Updated Files to Change
+
+| File                                        | Changes                                                                                                                                 |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/components/AddExpenseModal.svelte` | Add `reverseEngineerRatios`, `gcdTwo`; replace `bind:checked` on ratio toggles with `onchange` handlers calling `handleUseRatiosToggle` |
 
 ---
 

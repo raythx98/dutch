@@ -19,6 +19,7 @@ Always use keyed each blocks: `{#each items as item (item.id)}`. Without keys, S
 ## 401 comes as both HTTP status AND GraphQL error
 
 The backend can return a 401 in two ways:
+
 1. HTTP 401 status code.
 2. HTTP 200 with a GraphQL error containing code `401`.
 
@@ -53,6 +54,24 @@ Never read the JWT from `localStorage` directly in components. Always use the `a
 ## SvelteMap vs plain Map for reactive collections
 
 Dashboard and group pages use `SvelteMap` (a reactive Map wrapper from Svelte 5) instead of plain `Map`. Using a plain `Map` with `$state` works for simple cases but `SvelteMap` ensures fine-grained reactivity for complex updates (individual key mutations). Do not replace `SvelteMap` with `Map` in the dashboard.
+
+---
+
+## `$state` initialised from `$effect` causes first-render flicker
+
+Using a `$effect` to populate `$state` records (e.g. building `payerIncluded` once members are available) means the component's first render sees empty objects — all checkboxes unchecked, all inputs blank — until the effect fires after mount. Instead, compute initial values **synchronously** using a plain function called at declaration time. Read Svelte store values with `get(store)` from `svelte/store` rather than the reactive `$store` shorthand when you need the current value outside a reactive context.
+
+```typescript
+// ✅ correct — synchronous, no flicker
+const _init = buildInitialSplit(); // uses get(auth) inside
+let payerIncluded = $state<Record<string, boolean>>(_init.pInc);
+
+// ❌ wrong — first render sees empty {}
+let payerIncluded = $state<Record<string, boolean>>({});
+$effect(() => {
+	payerIncluded = buildInitialSplit().pInc;
+});
+```
 
 ---
 

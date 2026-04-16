@@ -53,12 +53,12 @@ When rules conflict, follow this order:
 
 The `docs/` directory holds living reference documents. Update them incrementally as you explore, plan, and implement.
 
-| File | Purpose |
-|------|---------|
-| `docs/architecture.md` | High-level system design — routing, auth flow, data flow |
-| `docs/modules.md` | Per-module summaries — what each file owns and its public interface |
-| `docs/decisions.md` | ADRs — why things are the way they are |
-| `docs/gotchas.md` | Traps, quirks, things not to change without care |
+| File                   | Purpose                                                             |
+| ---------------------- | ------------------------------------------------------------------- |
+| `docs/architecture.md` | High-level system design — routing, auth flow, data flow            |
+| `docs/modules.md`      | Per-module summaries — what each file owns and its public interface |
+| `docs/decisions.md`    | ADRs — why things are the way they are                              |
+| `docs/gotchas.md`      | Traps, quirks, things not to change without care                    |
 
 - Append new findings; do not overwrite existing content without good reason.
 - Keep entries short and factual — a few sentences per item is enough.
@@ -161,6 +161,7 @@ A task is complete when:
 # Suggesting Future Work
 
 When you identify improvements beyond the current task's scope:
+
 - Document them clearly in the relevant log or doc file.
 - DO NOT implement unless explicitly instructed.
 
@@ -177,14 +178,14 @@ The frontend expects a GraphQL backend at `http://localhost:8080/query` (dev) �
 
 ## Key Commands
 
-| Command | Purpose |
-|---------|---------|
-| `npm run dev` | Start development server |
-| `npm run build` | Production build to `build/` |
-| `npm run check` | Type-check all Svelte + TS files |
-| `npm run lint` | Run Prettier check + ESLint |
-| `npm run format` | Auto-format all files with Prettier |
-| `npm run preview` | Preview production build locally |
+| Command           | Purpose                             |
+| ----------------- | ----------------------------------- |
+| `npm run dev`     | Start development server            |
+| `npm run build`   | Production build to `build/`        |
+| `npm run check`   | Type-check all Svelte + TS files    |
+| `npm run lint`    | Run Prettier check + ESLint         |
+| `npm run format`  | Auto-format all files with Prettier |
+| `npm run preview` | Preview production build locally    |
 
 ## Dependency Inspection
 

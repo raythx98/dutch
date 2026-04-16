@@ -3,6 +3,7 @@
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
+	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import type { User, Expense, Currency, Share } from '$lib/types';
 
@@ -28,12 +29,10 @@
 	const displayCurrencies = $derived.by(() => {
 		const usedIds = new Set(usedCurrencies.map((c: Currency) => c.id));
 
-		// Find guessed currency in the full store
 		const guessedCurrency = $currencyStore.find((c: Currency) => c.code === $guessedCurrencyCode);
 
 		const topSection = [...usedCurrencies];
 
-		// Add guessed currency if it's not already in usedCurrencies
 		if (guessedCurrency && !usedIds.has(guessedCurrency.id)) {
 			topSection.push(guessedCurrency);
 		}
@@ -83,6 +82,247 @@
 	let errors = $state<Record<string, string>>({});
 	let amountInput: HTMLInputElement;
 
+	const sortedMembers = $derived(
+		[...members].sort((a, b) => (a.id === $auth.user?.id ? -1 : b.id === $auth.user?.id ? 1 : 0))
+	);
+
+	// --- Split state — initialised synchronously so first render is correct ---
+	function buildInitialSplit() {
+		const currentUserId = get(auth).user?.id;
+		const pInc: Record<string, boolean> = {};
+		const sInc: Record<string, boolean> = {};
+		const pRat: Record<string, number> = {};
+		const sRat: Record<string, number> = {};
+		const pAmt: Record<string, number> = {};
+		const sAmt: Record<string, number> = {};
+
+		for (const m of members) {
+			pRat[m.id] = 1;
+			sRat[m.id] = 1;
+			if (expense) {
+				const payer = expense.payers.find((p: Share) => p.user.id === m.id);
+				const share = expense.shares.find((s: Share) => s.user.id === m.id);
+				pInc[m.id] = !!(payer && parseFloat(payer.amount) > 0);
+				sInc[m.id] = !!(share && parseFloat(share.amount) > 0);
+				pAmt[m.id] = payer ? parseFloat(payer.amount) : 0;
+				sAmt[m.id] = share ? parseFloat(share.amount) : 0;
+			} else {
+				pInc[m.id] = m.id === currentUserId;
+				sInc[m.id] = true;
+				pAmt[m.id] = 0;
+				sAmt[m.id] = 0;
+			}
+		}
+		// useRatios starts ON for new expenses, OFF when editing (can't reverse-engineer ratios)
+		const useRatios = !expense;
+		return { pInc, sInc, pRat, sRat, pAmt, sAmt, useRatios };
+	}
+
+	const _init = buildInitialSplit();
+	let payerIncluded = $state<Record<string, boolean>>(_init.pInc);
+	let shareIncluded = $state<Record<string, boolean>>(_init.sInc);
+	let payerRatios = $state<Record<string, number>>(_init.pRat);
+	let shareRatios = $state<Record<string, number>>(_init.sRat);
+	let payerUseRatios = $state(_init.useRatios);
+	let shareUseRatios = $state(_init.useRatios);
+	let payerAmounts = $state<Record<string, number>>(_init.pAmt);
+	let shareAmounts = $state<Record<string, number>>(_init.sAmt);
+
+	// Recalculate payer amounts when ratio mode is on
+	$effect(() => {
+		if (!payerUseRatios) return;
+		const allIds = sortedMembers.map((m) => m.id);
+		const includedIds = sortedMembers.filter((m) => payerIncluded[m.id]).map((m) => m.id);
+		payerAmounts = distributeByRatio(amount, includedIds, payerRatios, allIds);
+	});
+
+	// Recalculate share amounts when ratio mode is on
+	$effect(() => {
+		if (!shareUseRatios) return;
+		const allIds = sortedMembers.map((m) => m.id);
+		const includedIds = sortedMembers.filter((m) => shareIncluded[m.id]).map((m) => m.id);
+		shareAmounts = distributeByRatio(amount, includedIds, shareRatios, allIds);
+	});
+
+	const iterPayers = $derived(
+		isViewOnly ? sortedMembers.filter((m) => (payerAmounts[m.id] ?? 0) > 0) : sortedMembers
+	);
+
+	const iterShares = $derived(
+		isViewOnly ? sortedMembers.filter((m) => (shareAmounts[m.id] ?? 0) > 0) : sortedMembers
+	);
+
+	let payersDiff = $derived.by(() => {
+		const total = parseFloat(amount || '0');
+		const sum = Object.values(payerAmounts).reduce((acc, a) => acc + (a ?? 0), 0);
+		const diff = sum - total;
+		if (Math.abs(diff) < 0.001) return null;
+		return { val: Math.abs(diff).toFixed(2), text: diff > 0 ? 'exceed by' : 'under by' };
+	});
+
+	let sharesDiff = $derived.by(() => {
+		const total = parseFloat(amount || '0');
+		const sum = Object.values(shareAmounts).reduce((acc, a) => acc + (a ?? 0), 0);
+		const diff = sum - total;
+		if (Math.abs(diff) < 0.001) return null;
+		return { val: Math.abs(diff).toFixed(2), text: diff > 0 ? 'exceed by' : 'under by' };
+	});
+
+	function getName(member: User | undefined) {
+		if (!member) return 'Unknown';
+		return member.name;
+	}
+
+	$effect(() => {
+		if (displayCurrencies.length > 0 && !currencyId) {
+			if (expense) {
+				const found = displayCurrencies.find((c: Currency) => c.code === expense.currency.code);
+				if (found && found.id !== 'separator') currencyId = found.id;
+			} else {
+				const first = displayCurrencies.find((c: Currency) => c.id !== 'separator');
+				if (first) currencyId = first.id;
+			}
+		}
+	});
+
+	onMount(() => {
+		if (amountInput && !isViewOnly) amountInput.focus();
+	});
+
+	/**
+	 * Distributes a total amount among included users proportionally by ratio.
+	 * Remainder cents are distributed randomly to avoid systematic bias.
+	 */
+	function distributeByRatio(
+		totalStr: string,
+		includedIds: string[],
+		ratios: Record<string, number>,
+		allIds: string[]
+	): Record<string, number> {
+		const result: Record<string, number> = {};
+		for (const id of allIds) result[id] = 0;
+		if (includedIds.length === 0) return result;
+
+		const total = parseFloat(totalStr || '0');
+		if (isNaN(total) || total <= 0) return result;
+
+		const totalRatio = includedIds.reduce((sum, id) => sum + (Number(ratios[id]) || 1), 0);
+		if (totalRatio === 0) return result;
+
+		const totalCents = Math.round(total * 100);
+		const cents: Record<string, number> = {};
+		let allocated = 0;
+
+		for (const id of includedIds) {
+			const share = Math.floor(((Number(ratios[id]) || 1) / totalRatio) * totalCents);
+			cents[id] = share;
+			allocated += share;
+		}
+
+		const remainder = totalCents - allocated;
+
+		// Shuffle for random penny distribution — no one is systematically shortchanged
+		const shuffled = [...includedIds];
+		for (let i = shuffled.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+		}
+		for (let i = 0; i < remainder; i++) {
+			cents[shuffled[i % shuffled.length]] += 1;
+		}
+
+		for (const id of includedIds) {
+			result[id] = cents[id] / 100;
+		}
+
+		return result;
+	}
+
+	/** Euclidean GCD of two non-negative integers. */
+	function gcdTwo(a: number, b: number): number {
+		return b === 0 ? a : gcdTwo(b, a % b);
+	}
+
+	/**
+	 * Reverse-engineers the smallest integer ratios that reproduce `amounts`
+	 * within ±1 cent each when fed back through distributeByRatio.
+	 *
+	 * Strategy: scan multipliers 1→MAX_SCALE (finds simplest ratio first),
+	 * fall back to GCD-based exact ratios if no clean fit is found.
+	 */
+	function reverseEngineerRatios(amounts: number[], total: number): number[] {
+		if (amounts.length === 0) return [];
+		if (amounts.length === 1) return [1];
+
+		const T = Math.round(total * 100);
+		const c = amounts.map((a) => Math.round(a * 100));
+
+		// Edge case: total is 0 or all amounts are 0
+		if (T <= 0 || c.every((v) => v === 0)) return amounts.map(() => 1);
+
+		const MAX_SCALE = 100;
+
+		for (let scale = 1; scale <= MAX_SCALE; scale++) {
+			const r = c.map((v) => Math.round((v / T) * scale));
+			if (r.some((v) => v <= 0)) continue;
+
+			const rTotal = r.reduce((sum, v) => sum + v, 0);
+			const sim = r.map((v) => Math.floor((v / rTotal) * T));
+			if (c.every((v, i) => Math.abs(v - sim[i]) <= 1)) return r;
+		}
+
+		// Fallback: GCD-based exact ratios
+		const g = c.reduce((a, b) => gcdTwo(a, b));
+		return c.map((v) => (g > 0 ? v / g : 1));
+	}
+
+	/**
+	 * Handles the "Use ratios" toggle for a given section.
+	 * When enabling, reverse-engineers ratios from current amounts so the
+	 * user sees a meaningful starting point rather than all-1s.
+	 */
+	function handleUseRatiosToggle(section: 'payers' | 'shares', enabled: boolean) {
+		if (enabled) {
+			const total = parseFloat(amount || '0');
+			if (section === 'payers') {
+				const includedIds = sortedMembers.filter((m) => payerIncluded[m.id]).map((m) => m.id);
+				const reversed = reverseEngineerRatios(
+					includedIds.map((id) => payerAmounts[id] ?? 0),
+					total
+				);
+				includedIds.forEach((id, i) => {
+					payerRatios[id] = reversed[i];
+				});
+				payerUseRatios = true;
+			} else {
+				const includedIds = sortedMembers.filter((m) => shareIncluded[m.id]).map((m) => m.id);
+				const reversed = reverseEngineerRatios(
+					includedIds.map((id) => shareAmounts[id] ?? 0),
+					total
+				);
+				includedIds.forEach((id, i) => {
+					shareRatios[id] = reversed[i];
+				});
+				shareUseRatios = true;
+			}
+		} else {
+			if (section === 'payers') payerUseRatios = false;
+			else shareUseRatios = false;
+		}
+	}
+
+	function handleAmountChange() {
+		if (isViewOnly) return;
+		// In manual payer mode with exactly 1 included payer, auto-assign the full amount
+		if (!payerUseRatios) {
+			const includedPayerIds = sortedMembers.filter((m) => payerIncluded[m.id]).map((m) => m.id);
+			if (includedPayerIds.length === 1) {
+				payerAmounts = { ...payerAmounts, [includedPayerIds[0]]: parseFloat(amount || '0') };
+			}
+		}
+		// Ratio mode: $effect handles recalculation automatically
+	}
+
 	function validate() {
 		const newErrors: Record<string, string> = {};
 
@@ -114,12 +354,12 @@
 		}
 
 		if (Object.keys(newErrors).length === 0) {
-			const payersSum = payers.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
+			const payersSum = Object.values(payerAmounts).reduce((sum, a) => sum + (a ?? 0), 0);
 			if (Math.abs(payersSum - totalAmount) > 0.01) {
 				newErrors.payers = `Sum (${payersSum.toFixed(2)}) must equal total (${totalAmount.toFixed(2)})`;
 			}
 
-			const sharesSum = shares.reduce((sum, s) => sum + parseFloat(s.amount || '0'), 0);
+			const sharesSum = Object.values(shareAmounts).reduce((sum, a) => sum + (a ?? 0), 0);
 			if (Math.abs(sharesSum - totalAmount) > 0.01) {
 				newErrors.shares = `Sum (${sharesSum.toFixed(2)}) must equal total (${totalAmount.toFixed(2)})`;
 			}
@@ -127,155 +367,6 @@
 
 		errors = newErrors;
 		return Object.keys(newErrors).length === 0;
-	}
-
-	const sortedMembers = $derived(
-		[...members].sort((a, b) => (a.id === $auth.user?.id ? -1 : b.id === $auth.user?.id ? 1 : 0))
-	);
-
-	// Payers and Shares state
-	let payers = $state<{ userId: string; amount: string }[]>([]);
-	let shares = $state<{ userId: string; amount: string }[]>([]);
-
-	let payersDiff = $derived.by(() => {
-		const total = parseFloat(amount || '0');
-		const sum = payers.reduce((acc, p) => acc + parseFloat(p.amount || '0'), 0);
-		const diff = sum - total;
-		if (Math.abs(diff) < 0.001) return null;
-		return {
-			val: Math.abs(diff).toFixed(2),
-			text: diff > 0 ? 'exceed by' : 'under by'
-		};
-	});
-
-	let sharesDiff = $derived.by(() => {
-		const total = parseFloat(amount || '0');
-		const sum = shares.reduce((acc, p) => acc + parseFloat(p.amount || '0'), 0);
-		const diff = sum - total;
-		if (Math.abs(diff) < 0.001) return null;
-		return {
-			val: Math.abs(diff).toFixed(2),
-			text: diff > 0 ? 'exceed by' : 'under by'
-		};
-	});
-
-	const filteredPayers = $derived(
-		isViewOnly ? payers.filter((p) => parseFloat(p.amount) > 0) : payers
-	);
-	const filteredShares = $derived(
-		isViewOnly ? shares.filter((s) => parseFloat(s.amount) > 0) : shares
-	);
-
-	function getName(member: User | undefined) {
-		if (!member) return 'Unknown';
-		return member.name;
-	}
-
-	$effect(() => {
-		if (displayCurrencies.length > 0 && !currencyId) {
-			if (expense) {
-				const found = displayCurrencies.find((c: Currency) => c.code === expense.currency.code);
-				if (found && found.id !== 'separator') currencyId = found.id;
-			} else {
-				// Default to first available currency in the prioritized list
-				const first = displayCurrencies.find((c: Currency) => c.id !== 'separator');
-				if (first) currencyId = first.id;
-			}
-		}
-	});
-
-	$effect(() => {
-		if (sortedMembers.length > 0 && payers.length === 0) {
-			if (expense) {
-				payers = sortedMembers.map((m: User) => {
-					const existing = expense.payers.find((p: Share) => p.user.id === m.id);
-					return {
-						userId: m.id,
-						amount: existing ? parseFloat(existing.amount).toFixed(2) : '0.00'
-					};
-				});
-				shares = sortedMembers.map((m: User) => {
-					const existing = expense.shares.find((s: Share) => s.user.id === m.id);
-					return {
-						userId: m.id,
-						amount: existing ? parseFloat(existing.amount).toFixed(2) : '0.00'
-					};
-				});
-			} else {
-				const currentUserId = $auth.user?.id;
-				payers = sortedMembers.map((m: User) => ({
-					userId: m.id,
-					amount: m.id === currentUserId ? '0.00' : '0.00'
-				}));
-				shares = sortedMembers.map((m: User) => ({
-					userId: m.id,
-					amount: '0.00'
-				}));
-			}
-		}
-	});
-
-	onMount(() => {
-		if (amountInput && !isViewOnly) amountInput.focus();
-	});
-
-	function distributeEqually(totalStr: string, participants: { userId: string; amount: string }[]) {
-		const total = parseFloat(totalStr);
-		if (isNaN(total) || total <= 0) return participants.map((p) => ({ ...p, amount: '0.00' }));
-
-		const count = participants.length;
-		if (count === 0) return participants;
-
-		const amountPerPerson = Math.floor((total * 100) / count) / 100;
-		let remaining = Math.round((total - amountPerPerson * count) * 100);
-
-		const newParticipants = participants.map((p) => ({ ...p, amount: amountPerPerson.toFixed(2) }));
-
-		const indices = Array.from({ length: count }, (_, i) => i);
-		for (let i = indices.length - 1; i > 0; i--) {
-			const j = Math.floor(Math.random() * (i + 1));
-			[indices[i], indices[j]] = [indices[j], indices[i]];
-		}
-
-		for (let i = 0; i < remaining; i++) {
-			const idx = indices[i];
-			newParticipants[idx].amount = (parseFloat(newParticipants[idx].amount) + 0.01).toFixed(2);
-		}
-
-		return newParticipants;
-	}
-
-	function handleAmountChange() {
-		if (isViewOnly) return;
-		const payersWithAmount = payers.filter((p) => parseFloat(p.amount) > 0);
-		if (payersWithAmount.length <= 1) {
-			let targetId = $auth.user?.id;
-			if (payersWithAmount.length === 1) {
-				targetId = payersWithAmount[0].userId;
-			} else if (expense) {
-				const originalPayer = expense.payers.find((p: Share) => parseFloat(p.amount) > 0);
-				if (originalPayer) targetId = originalPayer.user.id;
-			}
-
-			payers = payers.map((p) => ({
-				...p,
-				amount: p.userId === targetId ? parseFloat(amount || '0').toFixed(2) : '0.00'
-			}));
-		}
-
-		if (!isEditing) {
-			shares = distributeEqually(amount, shares);
-		}
-	}
-
-	function allocateFull(targetId: string, list: 'payers' | 'shares') {
-		if (isViewOnly) return;
-		const totalAmount = parseFloat(amount || '0').toFixed(2);
-		if (list === 'payers') {
-			payers = payers.map((p) => ({ ...p, amount: p.userId === targetId ? totalAmount : '0.00' }));
-		} else {
-			shares = shares.map((s) => ({ ...s, amount: s.userId === targetId ? totalAmount : '0.00' }));
-		}
 	}
 
 	async function handleSubmit(e: Event) {
@@ -301,17 +392,17 @@
 			amount: totalAmount.toFixed(2),
 			currencyId,
 			expenseAt: expenseAtVal,
-			payers: payers
-				.filter((p) => parseFloat(p.amount) > 0)
-				.map((p) => ({
-					userId: p.userId,
-					amount: parseFloat(p.amount).toFixed(2)
+			payers: sortedMembers
+				.filter((m) => (payerAmounts[m.id] ?? 0) > 0)
+				.map((m) => ({
+					userId: m.id,
+					amount: (payerAmounts[m.id] ?? 0).toFixed(2)
 				})),
-			shares: shares
-				.filter((s) => parseFloat(s.amount) > 0)
-				.map((s) => ({
-					userId: s.userId,
-					amount: parseFloat(s.amount).toFixed(2)
+			shares: sortedMembers
+				.filter((m) => (shareAmounts[m.id] ?? 0) > 0)
+				.map((m) => ({
+					userId: m.id,
+					amount: (shareAmounts[m.id] ?? 0).toFixed(2)
 				}))
 		};
 
@@ -441,92 +532,140 @@
 				</div>
 			</div>
 
+			<!-- Paid by -->
 			<div class="split-section">
 				<div class="split-header">
-					<h3>Paid by</h3>
-					{#if payersDiff || errors.payers}
-						<span class="hint warning"
-							>{errors.payers || `${payersDiff?.text} ${payersDiff?.val}`}</span
-						>
+					<div class="split-header-left">
+						<h3>Paid by</h3>
+						{#if payersDiff || errors.payers}
+							<span class="hint warning"
+								>{errors.payers || `${payersDiff?.text} ${payersDiff?.val}`}</span
+							>
+						{/if}
+					</div>
+					{#if !isViewOnly}
+						<label class="ratio-toggle">
+							<input
+								type="checkbox"
+								checked={payerUseRatios}
+								onchange={(e) => handleUseRatiosToggle('payers', e.currentTarget.checked)}
+							/>
+							<span>Use ratios</span>
+						</label>
 					{/if}
 				</div>
 				<div class="share-list">
-					{#each filteredPayers as payer (payer.userId)}
-						<div class="share-item">
+					{#each iterPayers as m (m.id)}
+						{@const isIncluded = !!payerIncluded[m.id]}
+						<div class="share-item" class:excluded={!isIncluded && !isViewOnly}>
+							{#if !isViewOnly}
+								<input type="checkbox" class="member-checkbox" bind:checked={payerIncluded[m.id]} />
+							{/if}
 							<div class="share-user">
-								<span class="name">{getName(members.find((m: User) => m.id === payer.userId))}</span
-								>
-								{#if payer.userId === $auth.user?.id}
+								<span class="name">{getName(m)}</span>
+								{#if m.id === $auth.user?.id}
 									<div class="me-tag-wrapper"><span class="me-tag">You</span></div>
 								{/if}
 							</div>
 							<div class="share-input-row no-wrap">
 								{#if !isViewOnly}
-									<button
-										type="button"
-										class="quick-btn"
-										title="Pay Full"
-										onclick={() => allocateFull(payer.userId, 'payers')}>100%</button
-									>
-									<input type="number" step="0.01" bind:value={payer.amount} />
+									{#if payerUseRatios}
+										<input
+											type="number"
+											class="ratio-input"
+											bind:value={payerRatios[m.id]}
+											disabled={!isIncluded}
+											min="0"
+											step="any"
+										/>
+										<span class="ratio-sep">×</span>
+										<span class="amount-display" class:dimmed={!isIncluded}>
+											{(payerAmounts[m.id] ?? 0).toFixed(2)}
+										</span>
+									{:else}
+										<input
+											type="number"
+											step="0.01"
+											class="amount-input"
+											bind:value={payerAmounts[m.id]}
+											disabled={!isIncluded}
+										/>
+									{/if}
 								{:else}
-									<span class="amount-display">{parseFloat(payer.amount).toFixed(2)}</span>
+									<span class="amount-display">{(payerAmounts[m.id] ?? 0).toFixed(2)}</span>
 								{/if}
 							</div>
 						</div>
 					{/each}
 				</div>
-				{#if !isViewOnly}
-					<button
-						type="button"
-						class="split-equally-btn"
-						onclick={() => (payers = distributeEqually(amount, payers))}>Split equally</button
-					>
-				{/if}
 			</div>
 
+			<!-- Split among -->
 			<div class="split-section">
 				<div class="split-header">
-					<h3>Split among</h3>
-					{#if sharesDiff || errors.shares}
-						<span class="hint warning"
-							>{errors.shares || `${sharesDiff?.text} ${sharesDiff?.val}`}</span
-						>
+					<div class="split-header-left">
+						<h3>Split among</h3>
+						{#if sharesDiff || errors.shares}
+							<span class="hint warning"
+								>{errors.shares || `${sharesDiff?.text} ${sharesDiff?.val}`}</span
+							>
+						{/if}
+					</div>
+					{#if !isViewOnly}
+						<label class="ratio-toggle">
+							<input
+								type="checkbox"
+								checked={shareUseRatios}
+								onchange={(e) => handleUseRatiosToggle('shares', e.currentTarget.checked)}
+							/>
+							<span>Use ratios</span>
+						</label>
 					{/if}
 				</div>
 				<div class="share-list">
-					{#each filteredShares as share (share.userId)}
-						<div class="share-item">
+					{#each iterShares as m (m.id)}
+						{@const isIncluded = !!shareIncluded[m.id]}
+						<div class="share-item" class:excluded={!isIncluded && !isViewOnly}>
+							{#if !isViewOnly}
+								<input type="checkbox" class="member-checkbox" bind:checked={shareIncluded[m.id]} />
+							{/if}
 							<div class="share-user">
-								<span class="name">{getName(members.find((m: User) => m.id === share.userId))}</span
-								>
-								{#if share.userId === $auth.user?.id}
+								<span class="name">{getName(m)}</span>
+								{#if m.id === $auth.user?.id}
 									<div class="me-tag-wrapper"><span class="me-tag">You</span></div>
 								{/if}
 							</div>
 							<div class="share-input-row no-wrap">
 								{#if !isViewOnly}
-									<button
-										type="button"
-										class="quick-btn"
-										title="Full Share"
-										onclick={() => allocateFull(share.userId, 'shares')}>100%</button
-									>
-									<input type="number" step="0.01" bind:value={share.amount} />
+									{#if shareUseRatios}
+										<input
+											type="number"
+											class="ratio-input"
+											bind:value={shareRatios[m.id]}
+											disabled={!isIncluded}
+											min="0"
+											step="any"
+										/>
+										<span class="ratio-sep">×</span>
+										<span class="amount-display" class:dimmed={!isIncluded}>
+											{(shareAmounts[m.id] ?? 0).toFixed(2)}
+										</span>
+									{:else}
+										<input
+											type="number"
+											step="0.01"
+											class="amount-input"
+											bind:value={shareAmounts[m.id]}
+											disabled={!isIncluded}
+										/>
+									{/if}
 								{:else}
-									<span class="amount-display">{parseFloat(share.amount).toFixed(2)}</span>
+									<span class="amount-display">{(shareAmounts[m.id] ?? 0).toFixed(2)}</span>
 								{/if}
 							</div>
 						</div>
 					{/each}
 				</div>
-				{#if !isViewOnly}
-					<button
-						type="button"
-						class="split-equally-btn"
-						onclick={() => (shares = distributeEqually(amount, shares))}>Split equally</button
-					>
-				{/if}
 			</div>
 
 			<div class="modal-actions">
@@ -668,47 +807,74 @@
 		margin-bottom: 1rem;
 	}
 
+	.split-header-left {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		min-width: 0;
+	}
+
 	.split-section h3 {
 		margin: 0;
 		font-size: 0.875rem;
 		text-transform: uppercase;
 		color: #6b7280;
+		flex-shrink: 0;
 	}
 
 	.hint {
 		font-size: 0.8rem;
 		font-weight: 600;
 	}
+
 	.hint.warning {
 		color: #ef4444;
+	}
+
+	.ratio-toggle {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		font-size: 0.8rem;
+		color: #4b5563;
+		cursor: pointer;
+		user-select: none;
+		white-space: nowrap;
+		flex-shrink: 0;
+	}
+
+	.ratio-toggle input[type='checkbox'] {
+		cursor: pointer;
+		width: 14px;
+		height: 14px;
+		flex-shrink: 0;
+		accent-color: var(--primary-color);
 	}
 
 	.share-list {
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
-		margin-bottom: 0.75rem;
 	}
 
 	.share-item {
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
 		gap: 0.5rem;
 	}
 
-	.amount-display {
-		font-weight: 600;
-		color: #111827;
-		font-size: 1rem;
-		min-width: 40px;
-		text-align: right;
+	.member-checkbox {
+		width: 15px;
+		height: 15px;
+		cursor: pointer;
+		flex-shrink: 0;
+		accent-color: var(--primary-color);
 	}
 
 	.share-user {
 		display: flex;
 		align-items: center;
-		align-content: flex-start;
 		flex-wrap: wrap;
 		max-height: 1.5rem;
 		overflow: hidden;
@@ -727,6 +893,10 @@
 		flex: 0 1 auto;
 	}
 
+	.share-item.excluded .share-user .name {
+		color: #9ca3af;
+	}
+
 	.me-tag-wrapper {
 		margin-left: 0.4rem;
 		flex: 0 0 auto;
@@ -738,75 +908,57 @@
 	.share-input-row {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 0.4rem;
 		flex-shrink: 0;
 	}
 
-	.share-item input {
-		width: auto;
-		max-width: 80px;
+	.ratio-input {
+		width: 52px;
+		padding: 0.25rem 0.4rem;
+		border: 1px solid #d1d5db;
+		border-radius: 4px;
+		text-align: right;
+		flex-shrink: 0;
+	}
+
+	.ratio-input:disabled {
+		background: #f3f4f6;
+		color: #9ca3af;
+		border-color: #e5e7eb;
+	}
+
+	.ratio-sep {
+		color: #9ca3af;
+		font-size: 0.875rem;
+		flex-shrink: 0;
+	}
+
+	.amount-display {
+		font-weight: 600;
+		color: #111827;
+		font-size: 1rem;
+		min-width: 52px;
+		text-align: right;
+	}
+
+	.amount-display.dimmed {
+		color: #9ca3af;
+		font-weight: 400;
+	}
+
+	.amount-input {
+		width: 80px;
 		padding: 0.25rem 0.5rem;
 		border: 1px solid #d1d5db;
 		border-radius: 4px;
 		text-align: right;
 		flex-shrink: 0;
-		min-width: 40px;
 	}
 
-	.share-item input:disabled {
-		background: transparent;
-		border: none;
-		color: #111827;
-		font-weight: 500;
-	}
-
-	.quick-btn {
-		background: #e5e7eb;
-		border: none;
-		padding: 0.2rem 0.4rem;
-		border-radius: 4px;
-		font-size: 0.7rem;
-		font-weight: 600;
-		cursor: pointer;
-		color: #4b5563;
-		flex-shrink: 0;
-		transition: transform 0.2s;
-	}
-
-	.quick-btn:active {
-		transform: scale(0.96);
-	}
-
-	.quick-btn:hover {
-		background: #d1d5db;
-	}
-
-	.split-equally-btn {
+	.amount-input:disabled {
 		background: #f3f4f6;
-		border: 1px solid #d1d5db;
-		color: #374151;
-		font-size: 0.8125rem;
-		font-weight: 500;
-		cursor: pointer;
-		padding: 0.35rem 0.75rem;
-		border-radius: 4px;
-		transition: all 0.2s;
-		display: inline-block;
-		margin-top: 0.5rem;
-	}
-
-	.split-equally-btn:active {
-		transform: scale(0.96);
-	}
-
-	.split-equally-btn:hover {
-		background: #e5e7eb;
-		border-color: #9ca3af;
-		color: #111827;
-	}
-
-	.input-with-currency.error {
-		border-color: #ef4444;
+		color: #9ca3af;
+		border-color: #e5e7eb;
 	}
 
 	.error-text {
@@ -836,22 +988,6 @@
 
 		.form-row {
 			grid-template-columns: 1fr;
-		}
-
-		.share-item {
-			gap: 0.5rem;
-		}
-
-		.share-input-row {
-			flex-shrink: 0;
-			flex-wrap: nowrap;
-		}
-
-		.share-item input {
-			width: auto;
-			max-width: 80px;
-			min-width: 40px;
-			flex-shrink: 0;
 		}
 
 		.modal-actions {

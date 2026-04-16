@@ -26,15 +26,15 @@ Dutch is a SvelteKit single-page application (SPA) for group expense management 
 
 SvelteKit file-based routing under `src/routes/`:
 
-| Route | Purpose | Auth Required |
-|-------|---------|---------------|
-| `/` | Landing page | No |
-| `/login` | Login form | No |
-| `/register` | Registration form | No |
-| `/dashboard` | User's groups list | Yes |
-| `/groups/[id]` | Group detail with expenses | Yes |
-| `/join/[code]` | Preview group before joining | No |
-| `/settings` | User settings | Yes |
+| Route          | Purpose                      | Auth Required |
+| -------------- | ---------------------------- | ------------- |
+| `/`            | Landing page                 | No            |
+| `/login`       | Login form                   | No            |
+| `/register`    | Registration form            | No            |
+| `/dashboard`   | User's groups list           | Yes           |
+| `/groups/[id]` | Group detail with expenses   | Yes           |
+| `/join/[code]` | Preview group before joining | No            |
+| `/settings`    | User settings                | Yes           |
 
 Auth guard is enforced in `src/routes/+layout.svelte` — unauthenticated users are redirected to `/login`.
 
@@ -68,11 +68,11 @@ Svelte Component
 
 ## State Management
 
-| State | Where | Mechanism |
-|-------|-------|-----------|
-| Auth token + user | `src/lib/auth.ts` | Svelte writable store + localStorage |
-| Currency list | `src/lib/currency.ts` | Svelte writable store + IndexedDB |
-| Toast notifications | `src/lib/toast.ts` | Svelte writable store |
+| State                 | Where                  | Mechanism                             |
+| --------------------- | ---------------------- | ------------------------------------- |
+| Auth token + user     | `src/lib/auth.ts`      | Svelte writable store + localStorage  |
+| Currency list         | `src/lib/currency.ts`  | Svelte writable store + IndexedDB     |
+| Toast notifications   | `src/lib/toast.ts`     | Svelte writable store                 |
 | Component-level state | Inside `.svelte` files | Svelte 5 runes (`$state`, `$derived`) |
 
 ## Currency System

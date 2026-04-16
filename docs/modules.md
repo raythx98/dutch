@@ -9,6 +9,7 @@ Per-file summaries — what each module owns and its public interface.
 GraphQL client wrapper. All backend communication goes through this module.
 
 **Exports:**
+
 - `query<T>(gql: string, variables?: Record<string, unknown>): Promise<T>` — sends a POST request to the GraphQL endpoint, attaches the Bearer token from the auth store, and throws a typed error on failure.
 
 **Handles:** 401 (unauthorized), 429 (rate limited), GraphQL-level errors (error code `401`).
@@ -20,6 +21,7 @@ GraphQL client wrapper. All backend communication goes through this module.
 Authentication state store. Single source of truth for the logged-in user.
 
 **Exports:**
+
 - `auth` — Svelte writable store containing `{ token: string | null, user: User | null }`.
 - Persists to `localStorage` under key `dutch_auth`.
 - `logout()` — clears the store and localStorage entry.
@@ -31,6 +33,7 @@ Authentication state store. Single source of truth for the logged-in user.
 Currency data fetching and caching.
 
 **Exports:**
+
 - `currencyStore` — Svelte writable store containing the list of available currencies.
 - `loadCurrencies()` — fetches from the backend and caches in IndexedDB; returns from cache on subsequent calls.
 - `guessUserCurrency()` — maps the browser's timezone/locale to a currency code using `currency-config.json`.
@@ -42,6 +45,7 @@ Currency data fetching and caching.
 Toast notification system.
 
 **Exports:**
+
 - `toast` — Svelte writable store for the current toast message.
 - `showToast(message: string, type: 'success' | 'error' | 'info')` — triggers a toast.
 
@@ -63,9 +67,18 @@ Barrel export for `src/lib/`. Import from `$lib` rather than individual files wh
 
 ## `src/lib/components/AddExpenseModal.svelte`
 
-Modal for adding a new expense to a group. Supports multi-payer and multi-share splitting.
+Modal for adding or editing an expense. Supports multi-payer and multi-share splitting with a checkbox/ratio UI.
 
-**Props:** `groupId`, `currencies`, `members`, `onClose`, `onSuccess`.
+**Props:** `groupId`, `members`, `expense?`, `usedCurrencies?`, `onClose`, `onSuccess`.
+
+**Split UI behaviour:**
+
+- Each member row has a checkbox (include/exclude) and a ratio input.
+- "Use ratios" toggle per section: ON → amounts auto-calculated from ratios; OFF → amounts are manually editable.
+- Defaults: Paid by = only current user checked; Split among = everyone checked; ratios = 1; toggle = ON.
+- Editing an existing expense: toggle starts OFF, amounts loaded from saved data.
+- Toggling ON (either mode) reverse-engineers integer ratios from current amounts via `reverseEngineerRatios` before the recalculation effect fires.
+- Rounding: `distributeByRatio` works in integer cents; remainder pennies distributed randomly to avoid systematic bias.
 
 ---
 
