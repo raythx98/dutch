@@ -3,8 +3,34 @@
 	import { toast } from '$lib/toast';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
+	import { syncQueue } from '$lib/offline';
+	import { pendingCount, syncing, isOnline } from '$lib/connectivity';
+	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
+	import { query } from '$lib/api';
 
 	let loading = $state(false);
+
+	onMount(() => {
+		// Unconditional probe on mount so the banner reflects actual server state
+		// when visiting settings, even if isOnline hasn't been updated by another page.
+		query<{ groups: { id: string }[] }>('query { groups { id } }').catch(() => {});
+	});
+
+	// Self-heal: when isOnline is false but device has internet, re-probe so the
+	// banner goes away as soon as the server becomes reachable again.
+	$effect(() => {
+		if (!$isOnline && navigator.onLine) {
+			query<{ groups: { id: string }[] }>('query { groups { id } }').catch(() => {});
+		}
+	});
+
+	async function handleSync() {
+		await syncQueue();
+		if (get(pendingCount) > 0) {
+			toast.error('Some changes failed to sync — will retry when online');
+		}
+	}
 
 	async function handleRefreshCurrencies() {
 		loading = true;
@@ -50,6 +76,24 @@
 
 	<main>
 		<section class="card">
+			<h2>Sync Offline Data</h2>
+			<p>
+				{#if $pendingCount > 0}
+					{$pendingCount} change{$pendingCount === 1 ? '' : 's'} pending sync.
+				{:else}
+					No pending changes to sync.
+				{/if}
+			</p>
+			<button
+				class="btn btn-primary"
+				onclick={handleSync}
+				disabled={$syncing || $pendingCount === 0 || !$isOnline}
+			>
+				{$syncing ? 'Syncing...' : 'Sync Now'}
+			</button>
+		</section>
+
+		<section class="card">
 			<h2>Data Management</h2>
 			<p>
 				Update local cache of currencies from the server. This ensures you have the latest currency
@@ -67,6 +111,12 @@
 		max-width: 800px;
 		margin: 0 auto;
 		padding: 2rem;
+	}
+
+	main {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
 	}
 
 	.settings-header {

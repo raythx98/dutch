@@ -1,6 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { query } from '$lib/api';
+	import {
+		getGroupCache,
+		saveGroupCache,
+		syncVersion,
+		syncing,
+		syncQueue,
+		removePendingOperation
+	} from '$lib/offline';
+	import { isOnline } from '$lib/connectivity';
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import { goto } from '$app/navigation';
@@ -33,82 +42,134 @@
 		{ payerId: string; recipientId: string; amount: string; currencyCode: string } | undefined
 	>(undefined);
 
+	const GROUP_QUERY = `
+		query GetGroupData($groupId: ID!) {
+			group(groupId: $groupId) {
+				id
+				name
+				inviteToken
+				members {
+					id
+					name
+				}
+				usedCurrencies {
+					id
+					code
+					symbol
+					name
+				}
+			}
+			expenses(groupId: $groupId) {
+				expenses {
+					id
+					type
+					name
+					description
+					amount
+					expenseAt
+					currency { id code symbol name }
+					payers {
+						user { id name }
+						amount
+					}
+					shares {
+						user { id name }
+						amount
+					}
+				}
+				owes {
+					user { id name }
+					amount
+					currency { code symbol name }
+				}
+				owed {
+					user { id name }
+					amount
+					currency { code symbol name }
+				}
+			}
+		}
+	`;
+
 	async function fetchData() {
 		loading = true;
 
-		const data = await query<{ group: Group; expenses: ExpenseSummary }>(
-			`
-			query GetGroupData($groupId: ID!) {
-				group(groupId: $groupId) {
-					id
-					name
-					inviteToken
-					members {
-						id
-						name
-					}
-					usedCurrencies {
-						id
-						code
-						symbol
-						name
-					}
-				}
-				expenses(groupId: $groupId) {
-					expenses {
-						id
-						type
-						name
-						description
-						amount
-						expenseAt
-						currency { id code symbol name }
-						payers {
-							user { id name }
-							amount
-						}
-						shares {
-							user { id name }
-							amount
-						}
-					}
-					owes {
-						user { id name }
-						amount
-						currency { code symbol name }
-					}
-					owed {
-						user { id name }
-						amount
-						currency { code symbol name }
-					}
-				}
-			}
-		`,
-			{ groupId }
-		);
-
-		if (data) {
-			group = data.group;
-			summary = data.expenses;
+		// Load from cache immediately for fast first paint
+		const cached = await getGroupCache(groupId);
+		if (cached) {
+			group = cached.data.group;
+			summary = cached.data.summary;
+			loading = false;
 		}
 
-		// If data is null, it might be due to 401 which is already handled in api.ts
+		// Skip server fetch while syncing or this group has locally-pending expenses.
+		// Checking the cache directly avoids a race with the pendingCount store initialising.
+		const hasPendingItems = (cached?.data.summary.expenses ?? []).some((e) => e.pendingSync);
+		if (get(syncing) || hasPendingItems) {
+			if (get(isOnline)) {
+				// Online with pending items but sync isn't running — kick it off.
+				// Covers re-login after a 401 interrupted sync and previous-session queued items.
+				if (hasPendingItems && !get(syncing)) syncQueue();
+			} else if (navigator.onLine) {
+				// Device has internet but server appeared unreachable — probe to restore isOnline.
+				query<{ group: Group; expenses: ExpenseSummary }>(GROUP_QUERY, { groupId }).catch(
+					() => {}
+				);
+			}
+			return;
+		}
+
+		// Use navigator.onLine (not the isOnline store) so the page still attempts a request
+		// when the device has internet but the server was temporarily unreachable. A successful
+		// response will restore isOnline and trigger sync without needing a page refresh.
+		if (!navigator.onLine) {
+			if (!group) {
+				toast.error('Group not available offline');
+				goto(`${base}/dashboard`);
+			}
+			return;
+		}
+
+		const data = await query<{ group: Group; expenses: ExpenseSummary }>(GROUP_QUERY, { groupId });
+
+		// 401 already handled in api.ts
 		if (!data && !get(auth).token) {
 			return;
 		}
 
-		if (!group) {
-			toast.error('Group not found');
-			goto(`${base}/dashboard`);
+		if (!data) {
+			if (!group) {
+				toast.error('Failed to load group');
+				goto(`${base}/dashboard`);
+			}
 			return;
 		}
 
+		group = data.group;
+		summary = data.expenses;
 		loading = false;
+
+		await saveGroupCache(groupId, { group: data.group, summary: data.expenses });
 	}
 
 	async function handleDeleteExpense(e: Event, expense: Expense) {
 		e.stopPropagation();
+
+		if (expense.pendingSync) {
+			// Cancel the queued operation — remove from queue and cache immediately
+			await removePendingOperation(expense.id);
+			const cached = await getGroupCache(groupId);
+			if (cached) {
+				cached.data.summary.expenses = cached.data.summary.expenses.filter(
+					(ex) => ex.id !== expense.id
+				);
+				await saveGroupCache(groupId, cached.data);
+				summary = cached.data.summary;
+			}
+			toast.success('Pending change cancelled');
+			return;
+		}
+
 		deletingExpense = expense;
 		showDeleteExpense = true;
 	}
@@ -167,7 +228,21 @@
 		}
 	}
 
-	onMount(fetchData);
+	let mounted = false;
+
+	onMount(() => {
+		mounted = true;
+		fetchData().catch(() => {
+			loading = false;
+		});
+	});
+
+	$effect(() => {
+		const v = $syncVersion;
+		if (mounted && v > 0) {
+			fetchData();
+		}
+	});
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -387,7 +462,32 @@
 								</div>
 
 								<div class="expense-info">
-									<div class="expense-name">{expense.name || expense.type}</div>
+									<div class="expense-name-row">
+										<span class="expense-name">{expense.name || expense.type}</span>
+										{#if expense.pendingSync}
+											<span class="pending-sync-icon" aria-label="Pending sync">
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													width="13"
+													height="13"
+													viewBox="0 0 24 24"
+													fill="none"
+													stroke="currentColor"
+													stroke-width="2.5"
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													><path
+														d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"
+													/><line x1="12" y1="9" x2="12" y2="13" /><line
+														x1="12"
+														y1="17"
+														x2="12.01"
+														y2="17"
+													/></svg
+												>
+											</span>
+										{/if}
+									</div>
 									<div class="expense-details">
 										{#if expense.type === 'Repayment'}
 											{@const payer =
@@ -668,7 +768,6 @@
 		background: white;
 		border: 1px solid #e5e7eb;
 		border-radius: 8px;
-		overflow: hidden;
 	}
 
 	.expense-item-container {
@@ -679,6 +778,16 @@
 
 	.expense-item-container:last-child {
 		border-bottom: none;
+	}
+
+	.expense-item-container:first-child .expense-item {
+		border-top-left-radius: 7px;
+		border-top-right-radius: 7px;
+	}
+
+	.expense-item-container:last-child .expense-item {
+		border-bottom-left-radius: 7px;
+		border-bottom-right-radius: 7px;
 	}
 
 	.expense-item {
@@ -744,18 +853,58 @@
 		flex-direction: column;
 		justify-content: center;
 		min-width: 0;
-		overflow: hidden;
+		overflow: visible;
+	}
+
+	.expense-name-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.125rem;
+		min-width: 0;
 	}
 
 	.expense-name {
 		font-weight: 600;
 		color: #111827;
-		margin-bottom: 0.125rem;
 		font-size: 0.95rem;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		width: 100%;
+		flex-shrink: 1;
+		min-width: 0;
+	}
+
+	.pending-sync-icon {
+		flex-shrink: 0;
+		color: #f59e0b;
+		display: inline-flex;
+		align-items: center;
+		cursor: default;
+		position: relative;
+	}
+
+	.pending-sync-icon::before {
+		content: 'Pending sync';
+		position: absolute;
+		bottom: calc(100% + 6px);
+		left: 50%;
+		transform: translateX(-50%);
+		background: #1f2937;
+		color: #f9fafb;
+		font-size: 0.72rem;
+		font-weight: 500;
+		padding: 0.2rem 0.5rem;
+		border-radius: 4px;
+		white-space: nowrap;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.1s ease;
+		z-index: 9999;
+	}
+
+	.pending-sync-icon:hover::before {
+		opacity: 1;
 	}
 
 	.expense-details {

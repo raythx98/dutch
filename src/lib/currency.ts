@@ -1,27 +1,10 @@
-import { openDB, type DBSchema } from 'idb';
 import { writable } from 'svelte/store';
 import { query } from './api';
+import { dbPromise } from './db';
 import type { Currency } from './types';
 import currencyConfig from './currency-config.json';
 
-interface DutchDB extends DBSchema {
-	currencies: {
-		key: string;
-		value: Currency;
-	};
-}
-
-const DB_NAME = 'dutch-db';
 const STORE_NAME = 'currencies';
-
-const dbPromise =
-	typeof window !== 'undefined'
-		? openDB<DutchDB>(DB_NAME, 1, {
-				upgrade(db) {
-					db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-				}
-			})
-		: null;
 
 export const currencyStore = writable<Currency[]>([]);
 
@@ -88,10 +71,9 @@ export function getCurrencyByLocation(): string | null {
 
 	if (!country && locales[0]) {
 		try {
-			// @ts-ignore
 			const maximized = new Intl.Locale(locales[0]).maximize();
 			country = maximized.region || '';
-		} catch (e) {
+		} catch {
 			/* ignore */
 		}
 	}

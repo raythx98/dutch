@@ -4,77 +4,124 @@ Traps, quirks, and things not to change without care.
 
 ---
 
-## Svelte 5 runes only work in `.svelte` and `.svelte.ts` files
+## Svelte 5 runes only work in .svelte and .svelte.ts files
 
-`$state`, `$derived`, `$effect` etc. are compile-time macros. They will fail silently or throw if used in regular `.ts` files. Cross-component shared state must use Svelte `writable` stores (`src/lib/auth.ts`, `src/lib/toast.ts`).
+`$state`, `$derived`, `$effect` are compile-time macros. Use Svelte writable stores for cross-module state.
 
 ---
 
 ## `{#each}` without keys causes diffing bugs
 
-Always use keyed each blocks: `{#each items as item (item.id)}`. Without keys, Svelte reuses DOM nodes in-place during updates, which causes stale state in interactive components (especially modal trigger buttons inside lists).
+Always: `{#each items as item (item.id)}`. Without keys Svelte reuses DOM nodes, causing stale state in interactive list items.
 
 ---
 
-## 401 comes as both HTTP status AND GraphQL error
+## 401 comes as HTTP status AND as a GraphQL error
 
-The backend can return a 401 in two ways:
-
-1. HTTP 401 status code.
-2. HTTP 200 with a GraphQL error containing code `401`.
-
-Both cases are handled in `src/lib/api.ts`. Do not add 401 handling in individual components — it is already centralized.
+Handled centrally in `api.ts`. Do not add 401 handling in components.
 
 ---
 
 ## Toast suppression on auth logout
 
-When a 401 triggers an automatic logout + redirect to `/login`, the toast system is intentionally suppressed to prevent a duplicate "unauthorized" toast appearing on the login page after the redirect. Do not add toasts inside the 401 path in `api.ts`.
+On 401-triggered logout, toasts are suppressed to avoid a duplicate "unauthorized" toast on the login page. Don't add toasts inside the 401 path in `api.ts`.
 
 ---
 
 ## Base path affects all internal navigation
 
-The SvelteKit base path (set in `svelte.config.js`) prefixes all `href` attributes. Use `$app/paths`'s `base` variable for programmatic navigation and link construction. Hard-coding paths like `href="/"` will break on GitHub Pages.
+Use `$app/paths` `base` for all programmatic navigation. Hard-coding `/` breaks GitHub Pages deployment.
 
 ---
 
 ## Currency auto-detection is timezone-based, not IP-based
 
-`guessUserCurrency()` uses `Intl.DateTimeFormat().resolvedOptions().timeZone` mapped through `currency-config.json`. It does not do any IP geolocation. Users in unexpected timezones (e.g., VPN) may get a wrong default currency — the setting can be changed in `/settings`.
+`guessUserCurrency()` uses `Intl.DateTimeFormat().resolvedOptions().timeZone`. VPN users may get wrong defaults.
 
 ---
 
-## auth store must be the only source of JWT
+## auth store is the only source of JWT
 
-Never read the JWT from `localStorage` directly in components. Always use the `auth` store from `src/lib/auth.ts`. The store is initialized from `localStorage` on app start but components should not know about the storage mechanism.
-
----
-
-## SvelteMap vs plain Map for reactive collections
-
-Dashboard and group pages use `SvelteMap` (a reactive Map wrapper from Svelte 5) instead of plain `Map`. Using a plain `Map` with `$state` works for simple cases but `SvelteMap` ensures fine-grained reactivity for complex updates (individual key mutations). Do not replace `SvelteMap` with `Map` in the dashboard.
+Never read `dutch_auth` from `localStorage` directly — always use the `auth` store from `src/lib/auth.ts`.
 
 ---
 
-## `$state` initialised from `$effect` causes first-render flicker
+## SvelteMap for reactive collections
 
-Using a `$effect` to populate `$state` records (e.g. building `payerIncluded` once members are available) means the component's first render sees empty objects — all checkboxes unchecked, all inputs blank — until the effect fires after mount. Instead, compute initial values **synchronously** using a plain function called at declaration time. Read Svelte store values with `get(store)` from `svelte/store` rather than the reactive `$store` shorthand when you need the current value outside a reactive context.
+Dashboard uses `SvelteMap` not `Map` for fine-grained reactivity on individual key mutations. Do not replace with plain `Map`.
+
+---
+
+## $state initialised from $effect causes first-render flicker
 
 ```typescript
-// ✅ correct — synchronous, no flicker
-const _init = buildInitialSplit(); // uses get(auth) inside
-let payerIncluded = $state<Record<string, boolean>>(_init.pInc);
+// ✅ synchronous — no flicker
+const _init = buildInitialSplit();
+let payerIncluded = $state(_init.pInc);
 
-// ❌ wrong — first render sees empty {}
-let payerIncluded = $state<Record<string, boolean>>({});
-$effect(() => {
-	payerIncluded = buildInitialSplit().pInc;
-});
+// ❌ $effect fires after mount — first render sees empty {}
+let payerIncluded = $state({});
+$effect(() => { payerIncluded = buildInitialSplit().pInc; });
 ```
+
+Use `get(store)` from `svelte/store` when reading store values outside reactive context.
 
 ---
 
-## Modal `onClose` must always be called on Escape
+## Modal onClose must always be called on Escape
 
-Modals handle the Escape key via `onkeydown` on the backdrop element. If you add a new modal, ensure the Escape key calls `onClose()`. Missing this creates a UX trap where the modal can't be closed with the keyboard.
+Handle `onkeydown` on the backdrop element. Missing this traps keyboard users.
+
+---
+
+## Svelte 5 reactive proxies cannot be serialized to IndexedDB
+
+`$state` values and `$props()` array lookups are reactive proxies — IDB's structured-clone throws `DataCloneError`. Use `$state.snapshot(value)` for `$state` variables; manually copy needed fields for `$props()` results.
+
+---
+
+## HMR creates multiple offline.ts instances; signal stores must be in connectivity.ts
+
+HMR re-executes `offline.ts` on any `api.ts` change, producing fresh store instances. A page subscribed to `syncVersion_B` won't see increments from `syncQueue()` running in instance A — post-sync UI refresh silently fails. `pendingCount`, `syncing`, `syncVersion` live in `connectivity.ts` (no user-code deps, never HMR-reloaded) making them true singletons. `navigator.locks('dutch-sync-queue')` prevents concurrent mutation firing across instances. Never replace the lock with a module-level boolean.
+
+---
+
+## overflow: hidden clips absolutely positioned CSS tooltips
+
+`overflow: hidden` clips positioned descendants even when positioned relative to an inner ancestor. Apply `border-radius` directly to `first-child`/`last-child` elements instead of relying on `overflow: hidden` on a container.
+
+---
+
+## navigator.locks { ifAvailable: true } silently drops sync on reconnect
+
+With `ifAvailable`, a busy lock causes the call to skip silently. The reconnect trigger is dropped if startup sync holds the lock. Always use the default queuing behaviour.
+
+---
+
+## pendingCount store races with fetchData on mount
+
+`initOffline()` and `fetchData()` both run from `onMount` concurrently. `fetchData()` may read `pendingCount = 0` before `refreshPendingCount()` runs. Guard server fetches by checking `cache.expenses.some(e => e.pendingSync)` directly.
+
+---
+
+## Cancelling a pending edit removes the expense from the UI temporarily
+
+`removePendingOperation` removes the cache entry. For pending edits (expense exists on server), it reappears on the next server fetch. Intentional — the UI reverts to server state.
+
+---
+
+## Editing a pending-add expense would send a UUID as expenseId
+
+If a user adds offline then edits offline, `AddExpenseModal` enqueues `editExpense` with `expenseId = tempId (UUID)`. The server expects an integer. `enqueueOperation` coalesces this into the `addExpense` payload instead — never enqueue `editExpense` for an expense that hasn't synced yet.
+
+---
+
+## Pages without natural API calls must probe explicitly for connectivity
+
+`isOnline` is only updated by `query()` outcomes. Pages that make no API calls (e.g. settings) must fire an unconditional probe on mount and a `$effect` probe when `$isOnline` is false — otherwise the offline banner never appears/disappears correctly.
+
+---
+
+## syncQueue not re-triggered after re-login (SPA navigation)
+
+`initOffline()` runs once on layout mount; re-login via SPA navigation doesn't remount the layout. Dashboard and group pages call `syncQueue()` at the start of each data-fetch to cover this case.

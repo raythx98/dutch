@@ -1,11 +1,17 @@
 <script lang="ts">
 	import { currencyStore, guessedCurrencyCode } from '$lib/currency';
 	import { query } from '$lib/api';
+	import { isOnline } from '$lib/connectivity';
+	import {
+		enqueueOperation,
+		addExpenseToGroupCache,
+		updateExpenseInGroupCache
+	} from '$lib/offline';
 	import { toast } from '$lib/toast';
 	import { auth } from '$lib/auth';
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
-	import type { User, Expense, Currency, Share } from '$lib/types';
+	import type { User, Expense, Currency, Share, ExpenseInput } from '$lib/types';
 
 	interface Props {
 		groupId: string;
@@ -369,6 +375,89 @@
 		return Object.keys(newErrors).length === 0;
 	}
 
+	async function saveOffline(input: ExpenseInput): Promise<void> {
+		const currency = displayCurrencies.find(
+			(c: Currency) => c.id === currencyId && c.id !== 'separator'
+		);
+		if (!currency) {
+			toast.error('Currency not found — cannot save offline');
+			loading = false;
+			return;
+		}
+
+		if (isEditing && expense) {
+			const optimistic: Expense = {
+				id: expense.id,
+				type: expense.type,
+				name: input.name,
+				description: input.description,
+				amount: input.amount,
+				expenseAt: input.expenseAt,
+				currency: {
+					id: currency.id,
+					code: currency.code,
+					symbol: currency.symbol,
+					name: currency.name
+				},
+				payers: input.payers.map((p) => {
+					const m = members.find((u) => u.id === p.userId);
+					return { user: { id: m?.id ?? p.userId, name: m?.name ?? 'Unknown' }, amount: p.amount };
+				}),
+				shares: input.shares.map((s) => {
+					const m = members.find((u) => u.id === s.userId);
+					return { user: { id: m?.id ?? s.userId, name: m?.name ?? 'Unknown' }, amount: s.amount };
+				}),
+				pendingSync: true
+			};
+			await updateExpenseInGroupCache(groupId, optimistic);
+			await enqueueOperation({
+				operation: 'editExpense',
+				groupId,
+				expenseId: expense.id,
+				payload: input,
+				createdAt: Date.now()
+			});
+			toast.success('Change saved \u2014 will sync when online');
+		} else {
+			const tempId = crypto.randomUUID();
+			const optimistic: Expense = {
+				id: tempId,
+				type: 'Generic',
+				name: input.name,
+				description: input.description,
+				amount: input.amount,
+				expenseAt: input.expenseAt,
+				currency: {
+					id: currency.id,
+					code: currency.code,
+					symbol: currency.symbol,
+					name: currency.name
+				},
+				payers: input.payers.map((p) => {
+					const m = members.find((u) => u.id === p.userId);
+					return { user: { id: m?.id ?? p.userId, name: m?.name ?? 'Unknown' }, amount: p.amount };
+				}),
+				shares: input.shares.map((s) => {
+					const m = members.find((u) => u.id === s.userId);
+					return { user: { id: m?.id ?? s.userId, name: m?.name ?? 'Unknown' }, amount: s.amount };
+				}),
+				pendingSync: true
+			};
+			await addExpenseToGroupCache(groupId, optimistic);
+			await enqueueOperation({
+				operation: 'addExpense',
+				groupId,
+				payload: input,
+				tempId,
+				createdAt: Date.now()
+			});
+			toast.success('Expense saved \u2014 will sync when online');
+		}
+
+		loading = false;
+		onSuccess();
+	}
+
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		if (isViewOnly) return;
@@ -385,7 +474,7 @@
 		const localDateTime = new Date(`${expenseDate}T${expenseTime}:00`);
 		const expenseAtVal = localDateTime.toISOString();
 
-		const input = {
+		const input: ExpenseInput = {
 			name,
 			description,
 			type: 'Generic',
@@ -394,18 +483,24 @@
 			expenseAt: expenseAtVal,
 			payers: sortedMembers
 				.filter((m) => (payerAmounts[m.id] ?? 0) > 0)
-				.map((m) => ({
-					userId: m.id,
-					amount: (payerAmounts[m.id] ?? 0).toFixed(2)
-				})),
+				.map((m) => ({ userId: m.id, amount: (payerAmounts[m.id] ?? 0).toFixed(2) })),
 			shares: sortedMembers
 				.filter((m) => (shareAmounts[m.id] ?? 0) > 0)
-				.map((m) => ({
-					userId: m.id,
-					amount: (shareAmounts[m.id] ?? 0).toFixed(2)
-				}))
+				.map((m) => ({ userId: m.id, amount: (shareAmounts[m.id] ?? 0).toFixed(2) }))
 		};
 
+		if (!get(isOnline)) {
+			try {
+				await saveOffline(input);
+			} catch (e) {
+				console.error('saveOffline failed:', e);
+				toast.error('Could not save. Please try again.');
+				loading = false;
+			}
+			return;
+		}
+
+		// ---- Online path ----
 		let data;
 		if (isEditing) {
 			data = await query(
@@ -434,7 +529,22 @@
 		if (data) {
 			toast.success(isEditing ? 'Expense updated' : 'Expense added');
 			onSuccess();
+			loading = false;
+			return;
 		}
+
+		// Timed out or server unreachable — isOnline is now false, queue the operation
+		if (!get(isOnline)) {
+			try {
+				await saveOffline(input);
+			} catch (e) {
+				console.error('saveOffline failed:', e);
+				toast.error('Could not save. Please try again.');
+				loading = false;
+			}
+			return;
+		}
+
 		loading = false;
 	}
 

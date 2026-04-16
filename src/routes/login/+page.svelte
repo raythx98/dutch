@@ -5,6 +5,8 @@
 	import { base } from '$app/paths';
 	import { query } from '$lib/api';
 	import { fetchAndSyncCurrencies } from '$lib/currency';
+	import { isOnline } from '$lib/connectivity';
+	import { get } from 'svelte/store';
 
 	let email = $state('');
 	let password = $state('');
@@ -58,6 +60,13 @@
 			}
 		);
 		loading = false;
+
+		if (!data) {
+			if (!get(isOnline)) {
+				toast.error('Unable to reach servers. Please check your connection.');
+			}
+			return;
+		}
 
 		if (data?.login) {
 			auth.login(data.login.token, { id: data.login.id, name: data.login.name });
