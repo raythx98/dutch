@@ -34,6 +34,8 @@ export interface Expense {
 	currency: Currency;
 	payers: Share[];
 	shares: Share[];
+	/** True when this expense exists only in local cache, not yet synced to server. */
+	pendingSync?: boolean;
 }
 
 export interface Owe {
@@ -46,4 +48,54 @@ export interface ExpenseSummary {
 	expenses: Expense[];
 	owes: Owe[];
 	owed: Owe[];
+}
+
+// ---- Offline / cache types ----
+
+export interface ShareInput {
+	userId: string;
+	amount: string;
+}
+
+export interface ExpenseInput {
+	name: string;
+	description: string;
+	type: string;
+	amount: string;
+	currencyId: string;
+	expenseAt: string;
+	payers: ShareInput[];
+	shares: ShareInput[];
+}
+
+export type OfflineOperation = 'addExpense' | 'editExpense';
+
+export interface OfflineQueueItem {
+	id?: number;
+	operation: OfflineOperation;
+	groupId: string;
+	expenseId?: string;
+	payload: ExpenseInput;
+	tempId?: string;
+	createdAt: number;
+}
+
+export interface BalanceItem {
+	amount: string;
+	currency: { symbol: string; code: string };
+}
+
+export interface DashboardData {
+	groups: Group[];
+	balances: Record<string, { owes: BalanceItem[]; owed: BalanceItem[] }>;
+}
+
+export interface DashboardCacheEntry {
+	data: DashboardData;
+	cachedAt: number;
+}
+
+export interface GroupCacheEntry {
+	data: { group: Group; summary: ExpenseSummary };
+	cachedAt: number;
 }

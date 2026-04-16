@@ -1,87 +1,91 @@
 # Architecture
 
-## Overview
+Dutch is a SvelteKit SPA (SSR disabled, `adapter-static`) for group expense management backed by a separate Go/GraphQL service (`go-dutch`).
 
-Dutch is a SvelteKit single-page application (SPA) for group expense management — a Splitwise alternative. It connects to a separate Go/GraphQL backend (`go-dutch`). The frontend is fully static (SSR disabled, `adapter-static`) and can be hosted on GitHub Pages or any static host.
-
-## Layer Structure
+## Layers
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Routes  (src/routes/)                                   │
-│  SvelteKit file-based routing — pages and layouts       │
-├─────────────────────────────────────────────────────────┤
-│  Components  (src/lib/components/)                       │
-│  Modal components for expenses, members, groups         │
-├─────────────────────────────────────────────────────────┤
-│  Lib  (src/lib/)                                         │
-│  api · auth · currency · toast · types                  │
-├─────────────────────────────────────────────────────────┤
-│  Backend (external — go-dutch)                           │
-│  GraphQL API at /query                                  │
-└─────────────────────────────────────────────────────────┘
+Routes  (src/routes/)          — pages and layouts
+Components  (src/lib/components/) — modal components
+Lib  (src/lib/)                — api · auth · currency · offline · toast · types
+Backend (external)             — GraphQL API at /query
 ```
 
-## Routing
+## Routes
 
-SvelteKit file-based routing under `src/routes/`:
+| Route          | Auth | Purpose                      |
+| -------------- | ---- | ---------------------------- |
+| `/`            | No   | Landing                      |
+| `/login`       | No   | Login form                   |
+| `/register`    | No   | Registration form            |
+| `/dashboard`   | Yes  | Groups list                  |
+| `/groups/[id]` | Yes  | Group detail + expenses      |
+| `/join/[code]` | No   | Group preview before joining |
+| `/settings`    | Yes  | User settings + manual sync  |
 
-| Route          | Purpose                      | Auth Required |
-| -------------- | ---------------------------- | ------------- |
-| `/`            | Landing page                 | No            |
-| `/login`       | Login form                   | No            |
-| `/register`    | Registration form            | No            |
-| `/dashboard`   | User's groups list           | Yes           |
-| `/groups/[id]` | Group detail with expenses   | Yes           |
-| `/join/[code]` | Preview group before joining | No            |
-| `/settings`    | User settings                | Yes           |
+Auth guard in `+layout.svelte` — unauthenticated users redirect to `/login`.
 
-Auth guard is enforced in `src/routes/+layout.svelte` — unauthenticated users are redirected to `/login`.
+## Auth Flow
 
-## Authentication Flow
-
-```
-1. User logs in → POST to /mutation (login GraphQL)
-2. Backend returns JWT access token
-3. Token stored in localStorage under key: dutch_auth
-4. All subsequent GraphQL requests: Authorization: Bearer <token>
-5. On 401 (HTTP or GQL error code) → auto-redirect to /login
-6. On logout → clear localStorage entry
-```
-
-The auth store (`src/lib/auth.ts`) wraps a Svelte writable store with localStorage persistence. It is the single source of truth for the current user's token and identity.
-
-## Data Flow
-
-```
-Svelte Component
-  │
-  ├── calls query<T>(gql, variables) from src/lib/api.ts
-  │     │
-  │     ├── reads token from auth store
-  │     ├── POST to GraphQL endpoint
-  │     └── returns typed response or throws
-  │
-  ├── updates local $state (Svelte 5 runes)
-  └── shows toast on error via toast store
-```
+JWT returned on login → stored in `localStorage` (`dutch_auth`) → attached as `Bearer` on all requests → 401 (HTTP or GQL error code) → auto-logout + redirect.
 
 ## State Management
 
-| State                 | Where                  | Mechanism                             |
-| --------------------- | ---------------------- | ------------------------------------- |
-| Auth token + user     | `src/lib/auth.ts`      | Svelte writable store + localStorage  |
-| Currency list         | `src/lib/currency.ts`  | Svelte writable store + IndexedDB     |
-| Toast notifications   | `src/lib/toast.ts`     | Svelte writable store                 |
-| Component-level state | Inside `.svelte` files | Svelte 5 runes (`$state`, `$derived`) |
+| State               | Location             | Mechanism                            |
+| ------------------- | -------------------- | ------------------------------------ |
+| Auth token + user   | `src/lib/auth.ts`    | Svelte store + localStorage          |
+| Currency list       | `src/lib/currency.ts`| Svelte store + IndexedDB             |
+| Toast               | `src/lib/toast.ts`   | Svelte store                         |
+| Connectivity/sync   | `src/lib/connectivity.ts` | Svelte stores (`isOnline`, `pendingCount`, `syncing`, `syncVersion`) |
+| Component state     | `.svelte` files      | Svelte 5 runes                       |
 
-## Currency System
+## Offline Mode
 
-Currencies are fetched from the backend on first load and cached in **IndexedDB** for offline-first read access. Auto-detection of the user's preferred currency uses a timezone-to-currency mapping in `src/lib/currency-config.json`.
+App-layer offline support — no Service Worker.
 
-## Static Deployment
+### Connectivity Detection
 
-- Adapter: `@sveltejs/adapter-static`
-- SSR is disabled globally in `src/routes/+layout.ts` (`ssr = false`)
-- SPA routing: all paths fall back to `index.html`
-- GitHub Pages subdir hosting: base path managed via `$app/paths`
+`isOnline` store in `connectivity.ts`, initialised from `navigator.onLine`. Updated by:
+1. `window` `online`/`offline` events.
+2. `api.ts`: `TypeError`/timeout → `isOnline.set(false)`; successful response → `isOnline.set(true)`.
+
+### Cache (dutch-db, IndexedDB v2)
+
+| Store             | Key           | Purpose                             |
+| ----------------- | ------------- | ----------------------------------- |
+| `currencies`      | id            | Currency list                       |
+| `dashboard-cache` | `"dashboard"` | Groups + balance summaries          |
+| `group-cache`     | groupId       | Group detail + expense summary      |
+| `offline-queue`   | auto-increment| Pending mutations                   |
+
+Pages use stale-while-revalidate: serve cache immediately, then overwrite on network success.
+
+### Write Queue & Sync
+
+`enqueueOperation(item)` adds to `offline-queue` with two coalescing rules:
+- Multiple `editExpense` for the same server expense → replace in-place (last write wins).
+- `editExpense` whose `expenseId` matches a pending `addExpense` `tempId` → update the `addExpense` payload (expense doesn't exist on server yet; sending a UUID `expenseId` would be rejected).
+
+`syncQueue()` drains the queue in insertion order via `query()`, updates cache with real IDs after `addExpense`. Protected by `navigator.locks('dutch-sync-queue')`. Triggered by:
+- `isOnline` false→true subscription.
+- `initOffline()` on layout mount.
+- Dashboard and group page data-fetch on every load (covers re-login after interrupted sync).
+
+### Sync Signals (all declared in `connectivity.ts` — HMR singleton)
+
+| Store          | Purpose                                               |
+| -------------- | ----------------------------------------------------- |
+| `pendingCount` | Queue depth; layout badge + "All changes synced" toast |
+| `syncing`      | True during active sync run                           |
+| `syncVersion`  | Increments on sync complete; pages subscribe to refetch |
+
+### UI
+
+- **Offline banner** — fixed top bar on auth pages when `!$isOnline`.
+- **Pending badge** — warning icon on `pendingSync: true` expense rows with CSS tooltip.
+- **Sync toast** — "All changes synced" fires in layout when `pendingCount` transitions >0→0.
+- **Settings** — "Sync Offline Data" section shows pending count and manual Sync Now button.
+
+## Deployment
+
+`adapter-static`, SSR disabled globally (`+layout.ts`), SPA fallback to `index.html`, base path via `$app/paths` for GitHub Pages subdir hosting.

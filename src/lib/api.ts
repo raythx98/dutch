@@ -1,5 +1,6 @@
 import { auth } from './auth';
 import { toast } from './toast';
+import { isOnline } from './connectivity';
 import { get } from 'svelte/store';
 import { goto } from '$app/navigation';
 
@@ -8,7 +9,7 @@ import { dev } from '$app/environment';
 
 const API_URL = dev ? 'http://localhost:8080/query' : 'https://161.118.239.148.sslip.io/query';
 
-function handleUnauthorized() {
+function handleUnauthorized() { 
 	const { token } = get(auth);
 
 	if (token) {
@@ -35,6 +36,9 @@ export async function query<T>(
 		headers['Authorization'] = `Bearer ${token}`;
 	}
 
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), 5000);
+
 	try {
 		const response = await fetch(API_URL, {
 			method: 'POST',
@@ -42,8 +46,11 @@ export async function query<T>(
 			body: JSON.stringify({
 				query: queryString,
 				variables
-			})
+			}),
+			signal: controller.signal
 		});
+		clearTimeout(timeoutId);
+		isOnline.set(true);
 
 		if (response.status === 401) {
 			handleUnauthorized();
@@ -80,11 +87,13 @@ export async function query<T>(
 
 		return result.data as T;
 	} catch (error) {
+		clearTimeout(timeoutId);
 		if (token && !get(auth).token) {
 			return null;
 		}
+		// Network failure (including timeout) — mark offline; banner communicates state
+		isOnline.set(false);
 		console.error('API Error:', error);
-		toast.error('Connection error. Please try again later.');
 		return null;
 	}
 }

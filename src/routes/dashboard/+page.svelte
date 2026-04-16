@@ -5,17 +5,15 @@
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { query } from '$lib/api';
+	import { getDashboardCache, saveDashboardCache, syncVersion, syncQueue } from '$lib/offline';
+	import { isOnline, syncing } from '$lib/connectivity';
 	import { onMount } from 'svelte';
-	import type { Group } from '$lib/types';
+	import { get } from 'svelte/store';
+	import type { Group, BalanceItem } from '$lib/types';
 	import LogoutModal from '$lib/components/LogoutModal.svelte';
 
 	interface Balance {
 		groupName: string;
-		amount: string;
-		currency: { symbol: string; code: string };
-	}
-
-	interface BalanceItem {
 		amount: string;
 		currency: { symbol: string; code: string };
 	}
@@ -57,8 +55,72 @@
 		return Object.keys(newErrors).length === 0;
 	}
 
+	function applyBalances(
+		groupList: Group[],
+		balancesData: BalanceResponse
+	): { owedList: Balance[]; owesList: Balance[] } {
+		const owedList: Balance[] = [];
+		const owesList: Balance[] = [];
+
+		groupList.forEach((group) => {
+			const expenses = balancesData[`g_${group.id}`];
+			if (expenses) {
+				const groupOwed = new SvelteMap<string, { amount: number; symbol: string }>();
+				const groupOwes = new SvelteMap<string, { amount: number; symbol: string }>();
+
+				expenses.owed.forEach((item) => {
+					const key = item.currency.code;
+					const current = groupOwed.get(key) || { amount: 0, symbol: item.currency.symbol };
+					groupOwed.set(key, { ...current, amount: current.amount + parseFloat(item.amount) });
+				});
+
+				expenses.owes.forEach((item) => {
+					const key = item.currency.code;
+					const current = groupOwes.get(key) || { amount: 0, symbol: item.currency.symbol };
+					groupOwes.set(key, { ...current, amount: current.amount + parseFloat(item.amount) });
+				});
+
+				groupOwed.forEach((val, code) => {
+					if (val.amount > 0)
+						owedList.push({
+							groupName: group.name,
+							amount: val.amount.toFixed(2),
+							currency: { code, symbol: val.symbol }
+						});
+				});
+
+				groupOwes.forEach((val, code) => {
+					if (val.amount > 0)
+						owesList.push({
+							groupName: group.name,
+							amount: val.amount.toFixed(2),
+							currency: { code, symbol: val.symbol }
+						});
+				});
+			}
+		});
+
+		return { owedList, owesList };
+	}
+
 	async function fetchGroupsAndBalances() {
 		loading = true;
+
+		// Load from cache immediately for fast first paint
+		const cached = await getDashboardCache();
+		if (cached) {
+			groups = cached.data.groups;
+			const { owedList, owesList } = applyBalances(cached.data.groups, cached.data.balances);
+			totalOwed = owedList;
+			totalOwes = owesList;
+			loading = false;
+		}
+
+		// If online with pending items and sync isn't already running, kick it off.
+		// syncQueue self-guards (empty queue → no-op) so this is safe to call unconditionally.
+		if (get(isOnline) && !get(syncing)) syncQueue();
+
+		// Fetch fresh data from network
 		const data = await query<{ groups: Group[] }>(`
 			query GetGroups {
 				groups {
@@ -68,99 +130,64 @@
 			}
 		`);
 
-		if (data) {
-			groups = data.groups;
-
-			if (groups.length > 0) {
-				// Construct a single batched query with aliases
-				const queryParts = groups.map(
-					(g) => `
-					g_${g.id}: expenses(groupId: "${g.id}") {
-						owes {
-							amount
-							currency { symbol code }
-						}
-						owed {
-							amount
-							currency { symbol code }
-						}
-					}
-				`
-				);
-
-				const batchedQuery = `
-					query GetAllBalances {
-						${queryParts.join('\n')}
-					}
-				`;
-
-				const balancesData = await query<BalanceResponse>(batchedQuery);
-
-				if (balancesData) {
-					const owedList: Balance[] = [];
-					const owesList: Balance[] = [];
-
-					groups.forEach((group) => {
-						const expenses = balancesData[`g_${group.id}`];
-						if (expenses) {
-							// Aggregate per group and currency
-							const groupOwed = new SvelteMap<string, { amount: number; symbol: string }>();
-							const groupOwes = new SvelteMap<string, { amount: number; symbol: string }>();
-
-							expenses.owed.forEach((item) => {
-								const key = item.currency.code;
-								const current = groupOwed.get(key) || { amount: 0, symbol: item.currency.symbol };
-								groupOwed.set(key, {
-									...current,
-									amount: current.amount + parseFloat(item.amount)
-								});
-							});
-
-							expenses.owes.forEach((item) => {
-								const key = item.currency.code;
-								const current = groupOwes.get(key) || { amount: 0, symbol: item.currency.symbol };
-								groupOwes.set(key, {
-									...current,
-									amount: current.amount + parseFloat(item.amount)
-								});
-							});
-
-							groupOwed.forEach((val, code) => {
-								if (val.amount > 0) {
-									owedList.push({
-										groupName: group.name,
-										amount: val.amount.toFixed(2),
-										currency: { code, symbol: val.symbol }
-									});
-								}
-							});
-
-							groupOwes.forEach((val, code) => {
-								if (val.amount > 0) {
-									owesList.push({
-										groupName: group.name,
-										amount: val.amount.toFixed(2),
-										currency: { code, symbol: val.symbol }
-									});
-								}
-							});
-						}
-					});
-
-					totalOwed = owedList;
-					totalOwes = owesList;
-				}
-			} else {
-				totalOwed = [];
-				totalOwes = [];
-			}
+		if (!data) {
+			// Network failure — stay on cache if available
+			loading = false;
+			return;
 		}
+
+		groups = data.groups;
+
+		if (groups.length > 0) {
+			const queryParts = groups.map(
+				(g) => `
+				g_${g.id}: expenses(groupId: "${g.id}") {
+					owes {
+						amount
+						currency { symbol code }
+					}
+					owed {
+						amount
+						currency { symbol code }
+					}
+				}
+			`
+			);
+
+			const batchedQuery = `
+				query GetAllBalances {
+					${queryParts.join('\n')}
+				}
+			`;
+
+			const balancesData = await query<BalanceResponse>(batchedQuery);
+
+			if (balancesData) {
+				const { owedList, owesList } = applyBalances(groups, balancesData);
+				totalOwed = owedList;
+				totalOwes = owesList;
+				await saveDashboardCache({ groups: $state.snapshot(groups), balances: balancesData });
+			} else {
+				// Balances failed — still cache the groups so they appear in offline mode
+				await saveDashboardCache({ groups: $state.snapshot(groups), balances: {} });
+			}
+		} else {
+			totalOwed = [];
+			totalOwes = [];
+			await saveDashboardCache({ groups: [], balances: {} });
+		}
+
 		loading = false;
 	}
 
 	async function handleCreateGroup(e: Event) {
 		e.preventDefault();
 		if (!validateCreateGroup()) return;
+
+		if (!$isOnline) {
+			toast.error('Cannot create a group while offline');
+			return;
+		}
 
 		creating = true;
 		const data = await query<{ addGroup: Group }>(
@@ -201,8 +228,20 @@
 		}
 	}
 
+	let mounted = false;
+
 	onMount(() => {
-		fetchGroupsAndBalances();
+		mounted = true;
+		fetchGroupsAndBalances().catch(() => {
+			loading = false;
+		});
+	});
+
+	$effect(() => {
+		const v = $syncVersion;
+		if (mounted && v > 0) {
+			fetchGroupsAndBalances();
+		}
 	});
 </script>
 

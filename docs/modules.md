@@ -6,172 +6,124 @@ Per-file summaries — what each module owns and its public interface.
 
 ## `src/lib/api.ts`
 
-GraphQL client wrapper. All backend communication goes through this module.
-
-**Exports:**
-
-- `query<T>(gql: string, variables?: Record<string, unknown>): Promise<T>` — sends a POST request to the GraphQL endpoint, attaches the Bearer token from the auth store, and throws a typed error on failure.
-
-**Handles:** 401 (unauthorized), 429 (rate limited), GraphQL-level errors (error code `401`).
+`query<T>(gql, variables?)` — POST to GraphQL with 5 s AbortController timeout and Bearer token. Returns `null` on any failure. Handles: 401 (logout + redirect), 429 (toast), GQL error code 401, network errors (`isOnline.set(false)`), success (`isOnline.set(true)`).
 
 ---
 
 ## `src/lib/auth.ts`
 
-Authentication state store. Single source of truth for the logged-in user.
+`auth` store — `{ token, user }`. Persists to `localStorage` key `dutch_auth`. `logout()` clears both.
 
-**Exports:**
+---
 
-- `auth` — Svelte writable store containing `{ token: string | null, user: User | null }`.
-- Persists to `localStorage` under key `dutch_auth`.
-- `logout()` — clears the store and localStorage entry.
+## `src/lib/connectivity.ts`
+
+Connectivity state and offline sync signals. All stores here are HMR singletons (no user-code deps).
+
+- `isOnline` — initialised from `navigator.onLine`; updated by window events and `api.ts`.
+- `pendingCount` / `syncing` / `syncVersion` — offline engine signals; declared here so HMR reloads of `offline.ts` don't create fresh instances. Re-exported by `offline.ts`.
+
+---
+
+## `src/lib/offline.ts`
+
+Core offline engine: IDB cache helpers, write queue, sync runner.
+
+- `getDashboardCache()` / `saveDashboardCache(data)`
+- `getGroupCache(id)` / `saveGroupCache(id, data)`
+- `addExpenseToGroupCache(id, expense)` — optimistic prepend.
+- `updateExpenseInGroupCache(id, expense)` — replace by id.
+- `enqueueOperation(item)` — adds to `offline-queue`. Coalesces edits (see architecture).
+- `removePendingOperation(expenseId)` — removes queue items + cache entry; cancels pending changes.
+- `syncQueue()` — drains queue; `navigator.locks('dutch-sync-queue')` for single execution.
+- `initOffline()` — call once on layout mount; refreshes `pendingCount` and runs `syncQueue()`.
+
+Re-exports: `pendingCount`, `syncing`, `syncVersion` (from `connectivity.ts`).
+
+---
+
+## `src/lib/db.ts`
+
+Single shared IndexedDB connection (`dutch-db` v2). Stores: `currencies`, `dashboard-cache`, `group-cache`, `offline-queue`.
 
 ---
 
 ## `src/lib/currency.ts`
 
-Currency data fetching and caching.
-
-**Exports:**
-
-- `currencyStore` — Svelte writable store containing the list of available currencies.
-- `loadCurrencies()` — fetches from the backend and caches in IndexedDB; returns from cache on subsequent calls.
-- `guessUserCurrency()` — maps the browser's timezone/locale to a currency code using `currency-config.json`.
+- `currencyStore` — list of available currencies.
+- `loadCurrencies()` — fetch + IDB cache; subsequent calls return from cache.
+- `guessUserCurrency()` — timezone → currency code via `currency-config.json`.
 
 ---
 
 ## `src/lib/toast.ts`
 
-Toast notification system.
-
-**Exports:**
-
-- `toast` — Svelte writable store for the current toast message.
-- `showToast(message: string, type: 'success' | 'error' | 'info')` — triggers a toast.
+`toast` store + `showToast(message, type)`.
 
 ---
 
 ## `src/lib/types.ts`
 
-All shared TypeScript interfaces. Define new types here — don't scatter them in component files.
-
-**Key types:** `User`, `Group`, `Member`, `Expense`, `Share`, `Currency`, `Owe`.
-
----
-
-## `src/lib/index.ts`
-
-Barrel export for `src/lib/`. Import from `$lib` rather than individual files where possible.
+All shared TypeScript interfaces. Key types: `User`, `Group`, `Expense` (`pendingSync?: boolean`), `Share`, `ExpenseSummary`, `OfflineQueueItem`, `DashboardCacheEntry`, `GroupCacheEntry`.
 
 ---
 
 ## `src/lib/components/AddExpenseModal.svelte`
 
-Modal for adding or editing an expense. Supports multi-payer and multi-share splitting with a checkbox/ratio UI.
+Add or edit expense. Multi-payer/share UI with checkbox + ratio inputs.
+
+- Toggle "Use ratios": ON → amounts auto-calculated; OFF → manual.
+- Defaults: only current user as payer, everyone in split, ratio 1, toggle ON.
+- Edit mode: toggle starts OFF, amounts loaded from saved data.
+- Toggling ON reverse-engineers integer ratios from current amounts (`reverseEngineerRatios`).
+- Rounding: integer cents, remainder distributed randomly.
+- Offline: queues `addExpense` or `editExpense` via `enqueueOperation`.
 
 **Props:** `groupId`, `members`, `expense?`, `usedCurrencies?`, `onClose`, `onSuccess`.
-
-**Split UI behaviour:**
-
-- Each member row has a checkbox (include/exclude) and a ratio input.
-- "Use ratios" toggle per section: ON → amounts auto-calculated from ratios; OFF → amounts are manually editable.
-- Defaults: Paid by = only current user checked; Split among = everyone checked; ratios = 1; toggle = ON.
-- Editing an existing expense: toggle starts OFF, amounts loaded from saved data.
-- Toggling ON (either mode) reverse-engineers integer ratios from current amounts via `reverseEngineerRatios` before the recalculation effect fires.
-- Rounding: `distributeByRatio` works in integer cents; remainder pennies distributed randomly to avoid systematic bias.
 
 ---
 
 ## `src/lib/components/AddMemberModal.svelte`
-
-Modal for adding a member to a group by username.
-
 **Props:** `groupId`, `onClose`, `onSuccess`.
-
----
 
 ## `src/lib/components/AddRepaymentModal.svelte`
-
-Modal for recording a repayment between two members.
-
 **Props:** `groupId`, `currencies`, `members`, `onClose`, `onSuccess`.
 
----
-
 ## `src/lib/components/DeleteExpenseModal.svelte`
-
-Confirmation dialog for deleting an expense.
-
 **Props:** `expenseId`, `onClose`, `onSuccess`.
 
----
-
 ## `src/lib/components/DeleteGroupModal.svelte`
-
-Confirmation dialog for deleting a group.
-
 **Props:** `groupId`, `onClose`, `onSuccess`.
 
----
-
 ## `src/lib/components/InviteModal.svelte`
-
-Displays the group's invite link/code for sharing.
-
 **Props:** `inviteToken`, `onClose`.
 
----
-
 ## `src/lib/components/LogoutModal.svelte`
-
-Confirmation dialog for logout.
-
 **Props:** `onClose`, `onConfirm`.
 
----
-
 ## `src/lib/components/Toast.svelte`
-
-Renders the global toast notification. Consumed in `+layout.svelte`.
+Renders global toast. Consumed in `+layout.svelte`.
 
 ---
 
 ## `src/routes/+layout.svelte`
 
-Root layout. Contains the auth guard — redirects unauthenticated users to `/login`. Renders the `Toast` component globally.
-
----
-
-## `src/routes/+layout.ts`
-
-Disables SSR globally (`export const ssr = false`). Required for static SPA deployment.
-
----
+Auth guard (redirect to `/login` if no token). Renders `Toast`. Owns offline banner (`!$isOnline` on auth pages), "All changes synced" toast (`pendingCount` >0→0 transition). Calls `initOffline()` on mount.
 
 ## `src/routes/dashboard/+page.svelte`
 
-The main dashboard showing all groups the user belongs to.
-
----
+Groups list. Calls `syncQueue()` on each data-fetch when online.
 
 ## `src/routes/groups/[id]/+page.svelte`
 
-Group detail page. Shows expenses, member balances, and settlement summary for a specific group.
-
----
-
-## `src/routes/join/[code]/+page.svelte`
-
-Public group preview page. Shown before a user joins via invite link.
-
----
-
-## `src/routes/login/+page.svelte` / `register/+page.svelte`
-
-Auth forms. On success, store the JWT and redirect to `/dashboard`.
-
----
+Group detail. Guards server fetch with `hasPendingItems` (cache check, not `pendingCount` store). Uses `navigator.onLine` (not `$isOnline`) for offline guard. Calls `syncQueue()` when pending items detected. Intercepts delete on `pendingSync` expenses via `removePendingOperation`.
 
 ## `src/routes/settings/+page.svelte`
 
-User settings (currency preference, profile details).
+Currency refresh + "Sync Offline Data" (pending count + Sync Now button). Probes server on mount and via `$effect` when `$isOnline` is false to keep banner accurate.
+
+## `src/routes/login/+page.svelte` / `register/+page.svelte`
+Auth forms → store JWT → redirect to `/dashboard`.
+
+## `src/routes/join/[code]/+page.svelte`
+Public group preview before joining.

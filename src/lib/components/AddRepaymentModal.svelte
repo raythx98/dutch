@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteSet } from 'svelte/reactivity';
 	import { currencyStore, guessedCurrencyCode } from '$lib/currency';
 	import { query } from '$lib/api';
 	import { toast } from '$lib/toast';
@@ -42,7 +43,7 @@
 			(c: Currency) => c.code === $guessedCurrencyCode && !usedIds.has(c.id)
 		);
 
-		const priorityIds = new Set([...usedIds]);
+		const priorityIds = new SvelteSet([...usedIds]);
 		if (guessedCurrency) priorityIds.add(guessedCurrency.id);
 
 		const others = $currencyStore.filter((c: Currency) => !priorityIds.has(c.id));
