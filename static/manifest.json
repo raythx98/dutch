@@ -2,7 +2,7 @@
 	"name": "Dutch",
 	"short_name": "Dutch",
 	"description": "Alternative to Splitwise",
-	"start_url": "/",
+	"start_url": "/dutch/",
 	"display": "standalone",
 	"background_color": "#ffffff",
 	"theme_color": "#4f46e5",
