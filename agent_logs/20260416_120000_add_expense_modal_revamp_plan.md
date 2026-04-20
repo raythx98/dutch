@@ -302,7 +302,7 @@ function gcdTwo(a: number, b: number): number {
 1. **Editing an existing expense** starts in manual mode (`useRatios = false`) — amounts loaded from expense data.
 2. **New expense** starts in ratio mode (`useRatios = true`) — amounts auto-calculated from default ratios.
 3. Amounts are **only** editable when "Use ratios" is OFF.
-4. When "Use ratios" is toggled **ON** (either section, either mode), ratios are **reverse-engineered** from current amounts before the recalculation `$effect` fires. Ratios are never silently reset to 1.
+4. When "Use ratios" is toggled **ON** (either section, either mode), ratios are **reverse-engineered** from current amounts before the recalculation `$effect` fires — but only if `|sum(amounts) − total| < 0.02`. If amounts are stale (total changed while in manual mode), existing ratios are preserved and the `$effect` re-applies them to the new total.
 5. Both "Paid by" and "Split among" have independent toggle handlers.
 
 ---

@@ -125,3 +125,9 @@ If a user adds offline then edits offline, `AddExpenseModal` enqueues `editExpen
 ## syncQueue not re-triggered after re-login (SPA navigation)
 
 `initOffline()` runs once on layout mount; re-login via SPA navigation doesn't remount the layout. Dashboard and group pages call `syncQueue()` at the start of each data-fetch to cover this case.
+
+---
+
+## Toggling "Use ratios" ON with stale manual amounts produces garbage ratios
+
+If the user changes the total while ratio mode is OFF, manual amounts no longer sum to the new total. Calling `reverseEngineerRatios` on those stale amounts against the new total fails all scale checks and falls back to GCD, yielding huge ratios (e.g. 555:556). `handleUseRatiosToggle` guards against this by skipping reverse-engineering when `|sum(amounts) − total| ≥ 0.02` — existing ratios are kept and the `$effect` applies them to the new total instead.

@@ -292,23 +292,28 @@
 			const total = parseFloat(amount || '0');
 			if (section === 'payers') {
 				const includedIds = sortedMembers.filter((m) => payerIncluded[m.id]).map((m) => m.id);
-				const reversed = reverseEngineerRatios(
-					includedIds.map((id) => payerAmounts[id] ?? 0),
-					total
-				);
-				includedIds.forEach((id, i) => {
-					payerRatios[id] = reversed[i];
-				});
+				const amounts = includedIds.map((id) => payerAmounts[id] ?? 0);
+				const amountsSum = amounts.reduce((s, v) => s + v, 0);
+				// Only reverse-engineer if current amounts are consistent with the total.
+				// If stale (e.g. total changed while in manual mode), keep existing ratios
+				// so the $effect re-applies them to the new total instead of using garbage ratios.
+				if (Math.abs(amountsSum - total) < 0.02) {
+					const reversed = reverseEngineerRatios(amounts, total);
+					includedIds.forEach((id, i) => {
+						payerRatios[id] = reversed[i];
+					});
+				}
 				payerUseRatios = true;
 			} else {
 				const includedIds = sortedMembers.filter((m) => shareIncluded[m.id]).map((m) => m.id);
-				const reversed = reverseEngineerRatios(
-					includedIds.map((id) => shareAmounts[id] ?? 0),
-					total
-				);
-				includedIds.forEach((id, i) => {
-					shareRatios[id] = reversed[i];
-				});
+				const amounts = includedIds.map((id) => shareAmounts[id] ?? 0);
+				const amountsSum = amounts.reduce((s, v) => s + v, 0);
+				if (Math.abs(amountsSum - total) < 0.02) {
+					const reversed = reverseEngineerRatios(amounts, total);
+					includedIds.forEach((id, i) => {
+						shareRatios[id] = reversed[i];
+					});
+				}
 				shareUseRatios = true;
 			}
 		} else {
