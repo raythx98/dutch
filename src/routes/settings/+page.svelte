@@ -26,6 +26,9 @@
 	});
 
 	async function handleSync() {
+		// Probe the network first — this updates isOnline if connectivity has returned
+		// and clears the offline banner without requiring a page navigation.
+		await query<{ groups: { id: string }[] }>('query { groups { id } }').catch(() => {});
 		await syncQueue();
 		if (get(pendingCount) > 0) {
 			toast.error('Some changes failed to sync — will retry when online');
@@ -87,7 +90,7 @@
 			<button
 				class="btn btn-primary"
 				onclick={handleSync}
-				disabled={$syncing || $pendingCount === 0 || !$isOnline}
+				disabled={$syncing || $pendingCount === 0}
 			>
 				{$syncing ? 'Syncing...' : 'Sync Now'}
 			</button>

@@ -130,6 +130,18 @@ If a user adds offline then edits offline, `AddExpenseModal` enqueues `editExpen
 
 ---
 
+## Stale-chunk errors after deploy (GitHub Pages)
+
+After a new deploy, tabs with cached old HTML try to import old chunk hashes that no longer exist → `"Importing a module script failed"`. `window.location.reload()` re-serves cached HTML, causing an infinite loop. `hooks.client.ts` catches this, sets a `sessionStorage` guard, then navigates with `?_r=<timestamp>` to force a fresh HTML fetch.
+
+---
+
+## Safari shows "offline" for unvisited routes when actually offline
+
+SvelteKit lazy-loads route JS chunks on first visit. Without a service worker, Safari hits the network for the chunk, fails offline, and shows its native offline page instead of a JS error. The service worker precaches all chunks on install — every route is available from first load.
+
+---
+
 ## Toggling "Use ratios" ON with stale manual amounts produces garbage ratios
 
 If the user changes the total while ratio mode is OFF, manual amounts no longer sum to the new total. Calling `reverseEngineerRatios` on those stale amounts against the new total fails all scale checks and falls back to GCD, yielding huge ratios (e.g. 555:556). `handleUseRatiosToggle` guards against this by skipping reverse-engineering when `|sum(amounts) − total| ≥ 0.02` — existing ratios are kept and the `$effect` applies them to the new total instead.

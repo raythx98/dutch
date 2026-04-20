@@ -144,6 +144,29 @@ export async function enqueueOperation(item: Omit<OfflineQueueItem, 'id'>): Prom
 			}
 		}
 
+		if (item.operation === 'deleteExpense' && item.expenseId) {
+			const all = await db.getAll('offline-queue');
+
+			// If the expense was never synced (still a pending add), cancelling the add is
+			// equivalent to deleting — just remove the queued add and do nothing else.
+			const pendingAdd = all.find(
+				(q) => q.operation === 'addExpense' && q.tempId === item.expenseId
+			);
+			if (pendingAdd?.id !== undefined) {
+				await db.delete('offline-queue', pendingAdd.id);
+				await refreshPendingCount();
+				return;
+			}
+
+			// Drop any queued edit for the same expense — the delete supersedes it.
+			const pendingEdit = all.find(
+				(q) => q.operation === 'editExpense' && q.expenseId === item.expenseId
+			);
+			if (pendingEdit?.id !== undefined) {
+				await db.delete('offline-queue', pendingEdit.id);
+			}
+		}
+
 		await db.add('offline-queue', item as OfflineQueueItem);
 		await refreshPendingCount();
 	} catch (e) {
@@ -243,6 +266,14 @@ export async function syncQueue(): Promise<void> {
 						}
 					}
 				}
+			} else if (item.operation === 'deleteExpense' && item.expenseId) {
+				await query<{ deleteExpense: boolean }>(
+					`mutation DeleteExpense($id: ID!) {
+						deleteExpense(expenseId: $id)
+					}`,
+					{ id: item.expenseId }
+				);
+				// Cache was already updated optimistically when the delete was queued.
 			}
 
 			// Remove from queue regardless of server success/failure.

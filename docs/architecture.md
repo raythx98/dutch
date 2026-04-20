@@ -41,7 +41,11 @@ JWT returned on login → stored in `localStorage` (`dutch_auth`) → attached a
 
 ## Offline Mode
 
-App-layer offline support — no Service Worker.
+App-layer offline support backed by a Service Worker for shell caching.
+
+### Service Worker (`src/service-worker.ts`)
+
+Precaches all build chunks and static files on install. Serves hashed assets from cache (immutable); network-first with cache fallback for everything else. Old caches evicted on activate. Fixes: (1) unvisited routes fail to load offline, (2) stale-chunk errors after deploy.
 
 ### Connectivity Detection
 
@@ -63,10 +67,11 @@ Pages use stale-while-revalidate: serve cache immediately, then overwrite on net
 
 ### Write Queue & Sync
 
-`enqueueOperation(item)` adds to `offline-queue` with two coalescing rules:
+`enqueueOperation(item)` adds to `offline-queue` with three coalescing rules:
 
 - Multiple `editExpense` for the same server expense → replace in-place (last write wins).
-- `editExpense` whose `expenseId` matches a pending `addExpense` `tempId` → update the `addExpense` payload (expense doesn't exist on server yet; sending a UUID `expenseId` would be rejected).
+- `editExpense` whose `expenseId` matches a pending `addExpense` `tempId` → update the `addExpense` payload (expense doesn't exist on server yet; UUID `expenseId` would be rejected).
+- `deleteExpense` targeting a pending `addExpense` tempId → cancels the add (expense never existed on server); any queued `editExpense` for the same ID is also removed.
 
 `syncQueue()` drains the queue in insertion order via `query()`, updates cache with real IDs after `addExpense`. Protected by `navigator.locks('dutch-sync-queue')`. Triggered by:
 
@@ -87,7 +92,9 @@ Pages use stale-while-revalidate: serve cache immediately, then overwrite on net
 - **Offline banner** — fixed top bar on auth pages when `!$isOnline`.
 - **Pending badge** — warning icon on `pendingSync: true` expense rows with CSS tooltip.
 - **Sync toast** — "All changes synced" fires in layout when `pendingCount` transitions >0→0.
-- **Settings** — "Sync Offline Data" section shows pending count and manual Sync Now button.
+- **Refresh button** — header icon on dashboard and group pages; calls fetch + `syncQueue()` unconditionally, restoring `isOnline` if the server is reachable again.
+- **Offline action guards** — Join Group, Add Member, Delete Group show a toast error and abort when offline. Delete Expense is available offline and queues a `deleteExpense` operation.
+- **Settings Sync Now** — probes the network before calling `syncQueue()` so clicking always attempts connectivity restore. Button enabled whenever `pendingCount > 0`.
 
 ## Deployment
 

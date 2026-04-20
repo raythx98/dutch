@@ -33,7 +33,7 @@ Core offline engine: IDB cache helpers, write queue, sync runner.
 - `getGroupCache(id)` / `saveGroupCache(id, data)`
 - `addExpenseToGroupCache(id, expense)` — optimistic prepend.
 - `updateExpenseInGroupCache(id, expense)` — replace by id.
-- `enqueueOperation(item)` — adds to `offline-queue`. Coalesces edits (see architecture).
+- `enqueueOperation(item)` — adds to `offline-queue`. Coalesces edits; handles `deleteExpense` cancellation of pending adds/edits (see architecture).
 - `removePendingOperation(expenseId)` — removes queue items + cache entry; cancels pending changes.
 - `syncQueue()` — drains queue; `navigator.locks('dutch-sync-queue')` for single execution.
 - `initOffline()` — call once on layout mount; refreshes `pendingCount` and runs `syncQueue()`.
@@ -64,7 +64,7 @@ Single shared IndexedDB connection (`dutch-db` v2). Stores: `currencies`, `dashb
 
 ## `src/lib/types.ts`
 
-All shared TypeScript interfaces. Key types: `User`, `Group`, `Expense` (`pendingSync?: boolean`), `Share`, `ExpenseSummary`, `OfflineQueueItem`, `DashboardCacheEntry`, `GroupCacheEntry`.
+All shared TypeScript interfaces. Key types: `User`, `Group`, `Expense` (`pendingSync?: boolean`), `Share`, `ExpenseSummary`, `OfflineQueueItem`, `DashboardCacheEntry`, `GroupCacheEntry`. `OfflineOperation` = `'addExpense' | 'editExpense' | 'deleteExpense'`; `payload` is optional (not needed for `deleteExpense`).
 
 ---
 
@@ -119,15 +119,23 @@ Auth guard (redirect to `/login` if no token). Renders `Toast`. Owns offline ban
 
 ## `src/routes/dashboard/+page.svelte`
 
-Groups list. Calls `syncQueue()` on each data-fetch when online.
+Groups list. Calls `syncQueue()` on each data-fetch when online. Refresh button in header re-fetches and re-syncs unconditionally. Join Group guarded offline (toast error).
 
 ## `src/routes/groups/[id]/+page.svelte`
 
-Group detail. Guards server fetch with `hasPendingItems` (cache check, not `pendingCount` store). Uses `navigator.onLine` (not `$isOnline`) for offline guard. Calls `syncQueue()` when pending items detected. Intercepts delete on `pendingSync` expenses via `removePendingOperation`.
+Group detail. Guards server fetch with `hasPendingItems` (cache check, not `pendingCount` store). Uses `navigator.onLine` (not `$isOnline`) for offline guard. Calls `syncQueue()` when pending items detected. Intercepts delete on `pendingSync` expenses via `removePendingOperation`. Add Member and Delete Group blocked offline (toast). Delete Expense offline queues `deleteExpense` and removes from cache optimistically. Refresh button in header.
 
 ## `src/routes/settings/+page.svelte`
 
-Currency refresh + "Sync Offline Data" (pending count + Sync Now button). Probes server on mount and via `$effect` when `$isOnline` is false to keep banner accurate.
+Currency refresh + "Sync Offline Data" (pending count + Sync Now button). Probes server on mount and via `$effect` when `$isOnline` is false to keep banner accurate. Sync Now always probes network before calling `syncQueue()`; enabled whenever `pendingCount > 0`.
+
+## `src/service-worker.ts`
+
+Precaches `build` (hashed chunks) and `files` (static assets) on install. Cache-first for build assets; network-first with cache fallback for navigation. Evicts old versioned caches on activate. Skips non-GET and cross-origin (API) requests.
+
+## `src/hooks.client.ts`
+
+`handleError` — catches stale-chunk import failures (`"Importing a module script failed"` etc.) after a deploy. Navigates to `pathname?_r=<timestamp>` (cache-bust) once per session (guarded by `sessionStorage`).
 
 ## `src/routes/login/+page.svelte` / `register/+page.svelte`
 

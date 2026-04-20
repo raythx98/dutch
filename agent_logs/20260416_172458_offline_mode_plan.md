@@ -116,3 +116,27 @@ HMR re-executes `offline.ts`, creating fresh store instances. Page subscribed to
 ### B21 — Settings page offline banner unresponsive
 
 Settings makes no API calls → `isOnline` never updated. Added unconditional probe on `onMount` and `$effect` probe when `$isOnline` is false. Also added "Sync Offline Data" section with pending count + Sync Now button. `settings/+page.svelte`
+
+---
+
+## Phase 2 — Post-launch fixes (2026-04-20/21)
+
+### B22 — Refresh button (dashboard + group page)
+
+Header icon button calls the page fetch function + `syncQueue()` unconditionally. Restores `isOnline` (via `api.ts`) if server is reachable while `isOnline` store says false. Spinner shown while `refreshing || $syncing`.
+
+### B23 — Stale-chunk reload loop on GitHub Pages
+
+After deploy, cached HTML references old chunk hashes. `handleError` in `hooks.client.ts` catches `"Importing a module script failed"`, guards with `sessionStorage`, navigates with `?_r=<timestamp>` to force fresh HTML fetch.
+
+### B24 — Safari "offline" for unvisited routes
+
+Route chunks lazy-loaded on first visit — unavailable offline without SW. Added `src/service-worker.ts`: precaches all `build` + `files` on install, cache-first for hashed assets, network-first with fallback for navigation, old caches evicted on activate.
+
+### B25 — Offline action guards
+
+Join Group, Add Member, Delete Group: show toast error and return early when offline. Delete Expense: available offline — queues `deleteExpense` operation via `enqueueOperation`, removes from group cache optimistically. Added `deleteExpense` to `OfflineOperation` type; `payload` made optional in `OfflineQueueItem`. `syncQueue()` handles `deleteExpense` mutation. Coalescing: `deleteExpense` targeting a pending `addExpense` tempId cancels the add (and any queued edit) without adding a mutation.
+
+### B26 — Sync Now does nothing when isOnline is stale-false
+
+`handleSync` now probes the network first (`query()`), which restores `isOnline` if the server is reachable. Sync Now button enabled whenever `pendingCount > 0` (removed `!$isOnline` gate).

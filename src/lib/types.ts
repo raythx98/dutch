@@ -68,14 +68,15 @@ export interface ExpenseInput {
 	shares: ShareInput[];
 }
 
-export type OfflineOperation = 'addExpense' | 'editExpense';
+export type OfflineOperation = 'addExpense' | 'editExpense' | 'deleteExpense';
 
 export interface OfflineQueueItem {
 	id?: number;
 	operation: OfflineOperation;
 	groupId: string;
 	expenseId?: string;
-	payload: ExpenseInput;
+	/** Not required for deleteExpense operations. */
+	payload?: ExpenseInput;
 	tempId?: string;
 	createdAt: number;
 }

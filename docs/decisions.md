@@ -88,6 +88,24 @@ Dashboard and group pages call `syncQueue()` at the start of each data-fetch whe
 
 ---
 
+## ADR-016: Service worker for offline shell caching
+
+Without a SW, Safari shows "page can't be displayed" for unvisited routes offline — the lazy-loaded route chunk was never fetched. The SW precaches all chunks on install so every route is available immediately. Also resolves stale-chunk errors after deploy (old SW serves old chunks correctly; new SW takes over cleanly on next tab open).
+
+---
+
+## ADR-017: deleteExpense cancels pending add rather than queuing a mutation
+
+If a `deleteExpense` targets an expense whose `addExpense` is still queued (never synced), the net effect is "nothing happened". Cancelling the queued add avoids sending a delete mutation for an ID the server never created. Any queued `editExpense` for the same ID is also dropped.
+
+---
+
+## ADR-018: Sync Now probes network before calling syncQueue
+
+`syncQueue()` early-returns when `isOnline` is false. `isOnline` is only updated by `query()` outcomes or browser events — neither fires reliably from the settings page. Probing explicitly in `handleSync` restores `isOnline` if the server is reachable, clears the offline banner, and allows the sync to proceed — all from one button click.
+
+---
+
 ## ADR-015: editExpense-of-pending-add coalesces into the addExpense payload
 
 In `enqueueOperation`, when an `editExpense` `expenseId` matches a pending `addExpense` `tempId`, the `addExpense` payload is updated in-place — no `editExpense` item is added. The expense doesn't exist on the server yet; sending a UUID as `expenseId` would be rejected (server expects integer).

@@ -214,6 +214,10 @@
 	function handleJoinGroup(e: Event) {
 		e.preventDefault();
 		if (!validateJoinGroup()) return;
+		if (!$isOnline) {
+			toast.error('Cannot join a group while offline');
+			return;
+		}
 		goto(`${base}/join/${joinCode}`);
 	}
 

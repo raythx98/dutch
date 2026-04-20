@@ -7,7 +7,8 @@
 		syncVersion,
 		syncing,
 		syncQueue,
-		removePendingOperation
+		removePendingOperation,
+		enqueueOperation
 	} from '$lib/offline';
 	import { isOnline } from '$lib/connectivity';
 	import { onMount } from 'svelte';
@@ -168,8 +169,43 @@
 			return;
 		}
 
+		if (!get(isOnline)) {
+			await enqueueOperation({
+				operation: 'deleteExpense',
+				groupId,
+				expenseId: expense.id,
+				createdAt: Date.now()
+			});
+			const cached = await getGroupCache(groupId);
+			if (cached) {
+				cached.data.summary.expenses = cached.data.summary.expenses.filter(
+					(ex) => ex.id !== expense.id
+				);
+				await saveGroupCache(groupId, cached.data);
+				summary = cached.data.summary;
+			}
+			toast.success('Expense will be deleted when back online');
+			return;
+		}
+
 		deletingExpense = expense;
 		showDeleteExpense = true;
+	}
+
+	function handleAddMember() {
+		if (!get(isOnline)) {
+			toast.error('Cannot add a member while offline');
+			return;
+		}
+		showAddMember = true;
+	}
+
+	function handleDeleteGroup() {
+		if (!get(isOnline)) {
+			toast.error('Cannot delete a group while offline');
+			return;
+		}
+		showDeleteGroup = true;
 	}
 
 	function getBalanceForExpense(expense: Expense) {
@@ -328,7 +364,7 @@
 					</button>
 					<button
 						class="btn btn-danger-outline btn-icon"
-						onclick={() => (showDeleteGroup = true)}
+						onclick={handleDeleteGroup}
 						title="Delete Group"
 					>
 						<svg
@@ -351,7 +387,7 @@
 							></line></svg
 						>
 					</button>
-					<button class="btn btn-primary add-member-top" onclick={() => (showAddMember = true)}
+					<button class="btn btn-primary add-member-top" onclick={handleAddMember}
 						>Add Member</button
 					>
 				</div>
