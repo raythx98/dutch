@@ -228,6 +228,16 @@
 		}
 	}
 
+	let refreshing = $state(false);
+
+	async function handleRefresh() {
+		if (refreshing) return;
+		refreshing = true;
+		await fetchGroupsAndBalances();
+		await syncQueue();
+		refreshing = false;
+	}
+
 	let mounted = false;
 
 	onMount(() => {
@@ -253,6 +263,28 @@
 		<div class="user-info">
 			<span class="welcome-text">Hi, <strong>{$auth.user?.name}</strong></span>
 			<div class="btn-group">
+				<button
+					class="btn btn-secondary btn-icon"
+					onclick={handleRefresh}
+					disabled={refreshing || $syncing}
+					title="Refresh"
+					class:spinning={refreshing || $syncing}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path
+							d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+						/></svg
+					>
+				</button>
 				<button
 					class="btn btn-secondary btn-icon"
 					onclick={() => goto(`${base}/settings`)}
@@ -472,6 +504,19 @@
 	.btn-group {
 		display: flex;
 		gap: 0.5rem;
+	}
+
+	:global(.spinning svg) {
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	.stats-grid {

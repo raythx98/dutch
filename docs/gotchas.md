@@ -61,7 +61,9 @@ let payerIncluded = $state(_init.pInc);
 
 // ❌ $effect fires after mount — first render sees empty {}
 let payerIncluded = $state({});
-$effect(() => { payerIncluded = buildInitialSplit().pInc; });
+$effect(() => {
+	payerIncluded = buildInitialSplit().pInc;
+});
 ```
 
 Use `get(store)` from `svelte/store` when reading store values outside reactive context.

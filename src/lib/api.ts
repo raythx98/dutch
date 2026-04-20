@@ -9,7 +9,7 @@ import { dev } from '$app/environment';
 
 const API_URL = dev ? 'http://localhost:8080/query' : 'https://161.118.239.148.sslip.io/query';
 
-function handleUnauthorized() { 
+function handleUnauthorized() {
 	const { token } = get(auth);
 
 	if (token) {

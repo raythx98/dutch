@@ -84,24 +84,31 @@ Add or edit expense. Multi-payer/share UI with checkbox + ratio inputs.
 ---
 
 ## `src/lib/components/AddMemberModal.svelte`
+
 **Props:** `groupId`, `onClose`, `onSuccess`.
 
 ## `src/lib/components/AddRepaymentModal.svelte`
+
 **Props:** `groupId`, `currencies`, `members`, `onClose`, `onSuccess`.
 
 ## `src/lib/components/DeleteExpenseModal.svelte`
+
 **Props:** `expenseId`, `onClose`, `onSuccess`.
 
 ## `src/lib/components/DeleteGroupModal.svelte`
+
 **Props:** `groupId`, `onClose`, `onSuccess`.
 
 ## `src/lib/components/InviteModal.svelte`
+
 **Props:** `inviteToken`, `onClose`.
 
 ## `src/lib/components/LogoutModal.svelte`
+
 **Props:** `onClose`, `onConfirm`.
 
 ## `src/lib/components/Toast.svelte`
+
 Renders global toast. Consumed in `+layout.svelte`.
 
 ---
@@ -123,7 +130,9 @@ Group detail. Guards server fetch with `hasPendingItems` (cache check, not `pend
 Currency refresh + "Sync Offline Data" (pending count + Sync Now button). Probes server on mount and via `$effect` when `$isOnline` is false to keep banner accurate.
 
 ## `src/routes/login/+page.svelte` / `register/+page.svelte`
+
 Auth forms → store JWT → redirect to `/dashboard`.
 
 ## `src/routes/join/[code]/+page.svelte`
+
 Public group preview before joining.
