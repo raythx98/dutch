@@ -64,7 +64,7 @@ Single shared IndexedDB connection (`dutch-db` v2). Stores: `currencies`, `dashb
 
 ## `src/lib/types.ts`
 
-All shared TypeScript interfaces. Key types: `User`, `Group`, `Expense` (`pendingSync?: boolean`), `Share`, `ExpenseSummary`, `OfflineQueueItem`, `DashboardCacheEntry`, `GroupCacheEntry`. `OfflineOperation` = `'addExpense' | 'editExpense' | 'deleteExpense'`; `payload` is optional (not needed for `deleteExpense`).
+All shared TypeScript interfaces. Key types: `User`, `Group`, `Expense` (`pendingSync?: boolean`, `conversionDetails?: ConversionDetails`), `Share`, `ConversionDetails`, `ExchangeRate`, `ExchangeRateSnapshot`, `ExpenseSummary`, `OfflineQueueItem`, `DashboardCacheEntry`, `GroupCacheEntry`. `OfflineOperation` = `'addExpense' | 'editExpense' | 'deleteExpense'`; `payload` is optional (not needed for `deleteExpense`).
 
 ---
 
@@ -83,17 +83,25 @@ Add or edit expense. Multi-payer/share UI with checkbox + ratio inputs.
 
 ---
 
+## `src/lib/components/AddConversionModal.svelte`
+
+Currency conversion modal. Pre-fills source currency and amount from the balance row. Fetches live exchange rates via `exchangeRates` query on mount and computes the cross-rate (`rates[target] / rates[source]`). Bidirectional editing: typing in the rate field recalculates the target amount and vice versa (implemented with `oninput` handlers, not `$effect`, to avoid reactive cycles). Shows "Updated Xh ago" metadata and a warning when a currency is absent from the API snapshot. Blocked when offline — handled by the parent before the modal opens.
+
+**Props:** `groupId`, `creditorId`, `debtorId`, `sourceAmount`, `sourceCurrencyCode`, `usedCurrencies?`, `onClose`, `onSuccess`.
+
+---
+
 ## `src/lib/components/AddMemberModal.svelte`
 
 **Props:** `groupId`, `onClose`, `onSuccess`.
 
 ## `src/lib/components/AddRepaymentModal.svelte`
 
-**Props:** `groupId`, `currencies`, `members`, `onClose`, `onSuccess`.
+**Props:** `groupId`, `members`, `expense?`, `prefill?`, `usedCurrencies?`, `onClose`, `onSuccess`.
 
 ## `src/lib/components/DeleteExpenseModal.svelte`
 
-**Props:** `expenseId`, `onClose`, `onSuccess`.
+**Props:** `expense`, `onClose`, `onSuccess`.
 
 ## `src/lib/components/DeleteGroupModal.svelte`
 
@@ -123,7 +131,7 @@ Groups list. Calls `syncQueue()` on each data-fetch when online. Refresh button 
 
 ## `src/routes/groups/[id]/+page.svelte`
 
-Group detail. Guards server fetch with `hasPendingItems` (cache check, not `pendingCount` store). Uses `navigator.onLine` (not `$isOnline`) for offline guard. Calls `syncQueue()` when pending items detected. Intercepts delete on `pendingSync` expenses via `removePendingOperation`. Add Member and Delete Group blocked offline (toast). Delete Expense offline queues `deleteExpense` and removes from cache optimistically. Refresh button in header.
+Group detail. Guards server fetch with `hasPendingItems` (cache check, not `pendingCount` store). Uses `navigator.onLine` (not `$isOnline`) for offline guard. Calls `syncQueue()` when pending items detected. Intercepts delete on `pendingSync` expenses via `removePendingOperation`. Add Member and Delete Group blocked offline (toast). Delete Expense offline queues `deleteExpense` and removes from cache optimistically. Refresh button in header. Conversion: "Convert" button per balance row opens `AddConversionModal` (blocked offline). Conversion expenses styled with an orange left border and amber icon; cannot be edited (toast). `GROUP_QUERY` includes `conversionDetails { sourceCurrency sourceAmount rate }`.
 
 ## `src/routes/settings/+page.svelte`
 

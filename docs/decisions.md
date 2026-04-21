@@ -88,6 +88,12 @@ Dashboard and group pages call `syncQueue()` at the start of each data-fetch whe
 
 ---
 
+## ADR-015: editExpense-of-pending-add coalesces into the addExpense payload
+
+In `enqueueOperation`, when an `editExpense` `expenseId` matches a pending `addExpense` `tempId`, the `addExpense` payload is updated in-place — no `editExpense` item is added. The expense doesn't exist on the server yet; sending a UUID as `expenseId` would be rejected (server expects integer).
+
+---
+
 ## ADR-016: Service worker for offline shell caching
 
 Without a SW, Safari shows "page can't be displayed" for unvisited routes offline — the lazy-loaded route chunk was never fetched. The SW precaches all chunks on install so every route is available immediately. Also resolves stale-chunk errors after deploy (old SW serves old chunks correctly; new SW takes over cleanly on next tab open).
@@ -106,6 +112,12 @@ If a `deleteExpense` targets an expense whose `addExpense` is still queued (neve
 
 ---
 
-## ADR-015: editExpense-of-pending-add coalesces into the addExpense payload
+## ADR-019: Currency conversion blocked offline
 
-In `enqueueOperation`, when an `editExpense` `expenseId` matches a pending `addExpense` `tempId`, the `addExpense` payload is updated in-place — no `editExpense` item is added. The expense doesn't exist on the server yet; sending a UUID as `expenseId` would be rejected (server expects integer).
+Converting requires a live exchange-rate fetch from the backend and must atomically create two linked DB records — neither is replayable via the existing offline queue. `openConversion()` checks `get(isOnline)` at click time and shows a toast error if offline. Settle (repayment) continues to work offline unchanged.
+
+---
+
+## ADR-020: Bidirectional rate/amount editing uses oninput, not $effect
+
+`AddConversionModal` lets the user edit either the exchange rate or the target amount, with the other field recalculating. Using `$effect` watching both would cause reactive cycles (writing `rate` triggers the `targetAmount` effect, which writes `targetAmount`, which triggers the `rate` effect…). Plain `oninput` handlers break the cycle cleanly.

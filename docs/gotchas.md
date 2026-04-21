@@ -4,18 +4,6 @@ Traps, quirks, and things not to change without care.
 
 ---
 
-## Svelte 5 runes only work in .svelte and .svelte.ts files
-
-`$state`, `$derived`, `$effect` are compile-time macros. Use Svelte writable stores for cross-module state.
-
----
-
-## `{#each}` without keys causes diffing bugs
-
-Always: `{#each items as item (item.id)}`. Without keys Svelte reuses DOM nodes, causing stale state in interactive list items.
-
----
-
 ## 401 comes as HTTP status AND as a GraphQL error
 
 Handled centrally in `api.ts`. Do not add 401 handling in components.
@@ -70,12 +58,6 @@ Use `get(store)` from `svelte/store` when reading store values outside reactive 
 
 ---
 
-## Modal onClose must always be called on Escape
-
-Handle `onkeydown` on the backdrop element. Missing this traps keyboard users.
-
----
-
 ## Svelte 5 reactive proxies cannot be serialized to IndexedDB
 
 `$state` values and `$props()` array lookups are reactive proxies — IDB's structured-clone throws `DataCloneError`. Use `$state.snapshot(value)` for `$state` variables; manually copy needed fields for `$props()` results.
@@ -85,12 +67,6 @@ Handle `onkeydown` on the backdrop element. Missing this traps keyboard users.
 ## HMR creates multiple offline.ts instances; signal stores must be in connectivity.ts
 
 HMR re-executes `offline.ts` on any `api.ts` change, producing fresh store instances. A page subscribed to `syncVersion_B` won't see increments from `syncQueue()` running in instance A — post-sync UI refresh silently fails. `pendingCount`, `syncing`, `syncVersion` live in `connectivity.ts` (no user-code deps, never HMR-reloaded) making them true singletons. `navigator.locks('dutch-sync-queue')` prevents concurrent mutation firing across instances. Never replace the lock with a module-level boolean.
-
----
-
-## overflow: hidden clips absolutely positioned CSS tooltips
-
-`overflow: hidden` clips positioned descendants even when positioned relative to an inner ancestor. Apply `border-radius` directly to `first-child`/`last-child` elements instead of relying on `overflow: hidden` on a container.
 
 ---
 
@@ -139,6 +115,18 @@ After a new deploy, tabs with cached old HTML try to import old chunk hashes tha
 ## Safari shows "offline" for unvisited routes when actually offline
 
 SvelteKit lazy-loads route JS chunks on first visit. Without a service worker, Safari hits the network for the chunk, fails offline, and shows its native offline page instead of a JS error. The service worker precaches all chunks on install — every route is available from first load.
+
+---
+
+## Conversion expenses cannot be edited
+
+`openEditExpense` checks `expense.type === 'Conversion'` and shows a toast instead of opening `AddExpenseModal`. Editing is not supported — delete and re-create instead.
+
+---
+
+## Conversion source legs are hidden from the expense list but included in balance
+
+The `Expenses` resolver returns all DB expense rows for balance calculation, then filters out source legs (type=Repayment, linked via the `conversions` table) from the display list. If you ever compute balance only from display-list expenses, source legs won't cancel the old-currency debt and balances will be wrong.
 
 ---
 

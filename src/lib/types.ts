@@ -24,6 +24,24 @@ export interface Share {
 	amount: string;
 }
 
+export interface ConversionDetails {
+	sourceCurrency: Currency;
+	sourceAmount: string;
+	rate: string;
+}
+
+export interface ExchangeRate {
+	code: string;
+	rate: string;
+}
+
+export interface ExchangeRateSnapshot {
+	base: string;
+	rates: ExchangeRate[];
+	fetchedAt: string;
+	unsupportedCurrencies: string[];
+}
+
 export interface Expense {
 	id: string;
 	type: string;
@@ -34,6 +52,7 @@ export interface Expense {
 	currency: Currency;
 	payers: Share[];
 	shares: Share[];
+	conversionDetails?: ConversionDetails;
 	/** True when this expense exists only in local cache, not yet synced to server. */
 	pendingSync?: boolean;
 }

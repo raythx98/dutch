@@ -21,6 +21,7 @@
 	import AddMemberModal from '$lib/components/AddMemberModal.svelte';
 	import AddExpenseModal from '$lib/components/AddExpenseModal.svelte';
 	import AddRepaymentModal from '$lib/components/AddRepaymentModal.svelte';
+	import AddConversionModal from '$lib/components/AddConversionModal.svelte';
 	import DeleteGroupModal from '$lib/components/DeleteGroupModal.svelte';
 	import DeleteExpenseModal from '$lib/components/DeleteExpenseModal.svelte';
 	import InviteModal from '$lib/components/InviteModal.svelte';
@@ -41,6 +42,11 @@
 	let deletingExpense = $state<Expense | undefined>(undefined);
 	let settlementPrefill = $state<
 		{ payerId: string; recipientId: string; amount: string; currencyCode: string } | undefined
+	>(undefined);
+	let showAddConversion = $state(false);
+	let conversionPrefill = $state<
+		| { creditorId: string; debtorId: string; sourceAmount: string; sourceCurrencyCode: string }
+		| undefined
 	>(undefined);
 
 	const GROUP_QUERY = `
@@ -76,6 +82,11 @@
 					shares {
 						user { id name }
 						amount
+					}
+					conversionDetails {
+						sourceCurrency { id code symbol name }
+						sourceAmount
+						rate
 					}
 				}
 				owes {
@@ -228,12 +239,35 @@
 	}
 
 	function openEditExpense(expense: Expense) {
+		if (expense.type === 'Conversion') {
+			toast.error('Conversion expenses cannot be edited. Delete and re-create if needed.');
+			return;
+		}
 		editingExpense = expense;
 		if (expense.type === 'Repayment') {
 			showAddRepayment = true;
 		} else {
 			showAddExpense = true;
 		}
+	}
+
+	function openConversion(
+		creditorId: string,
+		debtorId: string,
+		amount: string,
+		currencyCode: string
+	) {
+		if (!get(isOnline)) {
+			toast.error('Currency conversion requires an internet connection');
+			return;
+		}
+		conversionPrefill = {
+			creditorId,
+			debtorId,
+			sourceAmount: amount,
+			sourceCurrencyCode: currencyCode
+		};
+		showAddConversion = true;
 	}
 
 	function openSettlement(
@@ -252,6 +286,7 @@
 				showAddMember ||
 				showAddExpense ||
 				showAddRepayment ||
+				showAddConversion ||
 				showDeleteGroup ||
 				showDeleteExpense ||
 				showInvite;
@@ -412,6 +447,12 @@
 										openSettlement(o.user.id, $auth.user?.id || '', o.amount, o.currency.code)}
 									>Settle</button
 								>
+								<button
+									class="btn btn-xs btn-outline"
+									onclick={() =>
+										openConversion($auth.user?.id || '', o.user.id, o.amount, o.currency.code)}
+									>Convert</button
+								>
 							</div>
 						</div>
 					{:else}
@@ -433,6 +474,12 @@
 									onclick={() =>
 										openSettlement($auth.user?.id || '', o.user.id, o.amount, o.currency.code)}
 									>Settle</button
+								>
+								<button
+									class="btn btn-xs btn-outline"
+									onclick={() =>
+										openConversion(o.user.id, $auth.user?.id || '', o.amount, o.currency.code)}
+									>Convert</button
 								>
 							</div>
 						</div>
@@ -477,6 +524,7 @@
 							<div
 								class="expense-item"
 								class:repayment-item={expense.type === 'Repayment'}
+								class:conversion-item={expense.type === 'Conversion'}
 								class:generic-item={expense.type === 'Generic'}
 								onclick={() => openEditExpense(expense)}
 								role="button"
@@ -505,6 +553,23 @@
 												stroke-width="2.5"
 												stroke-linecap="round"
 												stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg
+											>
+										</div>
+									{:else if expense.type === 'Conversion'}
+										<div class="expense-icon conversion-icon">
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												width="18"
+												height="18"
+												viewBox="0 0 24 24"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												><path d="M7 16V4m0 0L3 8m4-4 4 4" /><path
+													d="M17 8v12m0 0 4-4m-4 4-4-4"
+												/></svg
 											>
 										</div>
 									{:else}
@@ -565,6 +630,14 @@
 													? 'you'
 													: expense.shares[0]?.user.name}
 											<span class="paid-by">{payer} paid {recipient}</span>
+										{:else if expense.type === 'Conversion' && expense.conversionDetails}
+											<span class="paid-by">
+												{expense.conversionDetails.sourceCurrency.symbol}{expense.conversionDetails
+													.sourceAmount}
+												{expense.conversionDetails.sourceCurrency.code} →
+												{expense.currency.symbol}{expense.amount}
+												{expense.currency.code}
+											</span>
 										{:else}
 											<span class="paid-by"
 												>Paid by {expense.payers[0]?.user.name === $auth.user?.name
@@ -586,7 +659,9 @@
 										class:negative={expense.type === 'Repayment' ? balance.isOwed : !balance.isOwed}
 									>
 										<span class="label">
-											{#if expense.type === 'Repayment'}
+											{#if expense.type === 'Conversion'}
+												CONVERTED
+											{:else if expense.type === 'Repayment'}
 												{balance.isOwed ? 'SENT' : 'RECEIVED'}
 											{:else}
 												{balance.isOwed ? 'YOU LENT' : 'BORROWED'}
@@ -686,6 +761,26 @@
 				showAddRepayment = false;
 				editingExpense = undefined;
 				settlementPrefill = undefined;
+				fetchData();
+			}}
+		/>
+	{/if}
+
+	{#if showAddConversion && group && conversionPrefill}
+		<AddConversionModal
+			{groupId}
+			creditorId={conversionPrefill.creditorId}
+			debtorId={conversionPrefill.debtorId}
+			sourceAmount={conversionPrefill.sourceAmount}
+			sourceCurrencyCode={conversionPrefill.sourceCurrencyCode}
+			usedCurrencies={group.usedCurrencies}
+			onClose={() => {
+				showAddConversion = false;
+				conversionPrefill = undefined;
+			}}
+			onSuccess={() => {
+				showAddConversion = false;
+				conversionPrefill = undefined;
 				fetchData();
 			}}
 		/>
@@ -1053,6 +1148,16 @@
 	.repayment-item {
 		background-color: #fcfdfc;
 		border-left-color: #22c55e;
+	}
+
+	.conversion-item {
+		background-color: #fafafa;
+		border-left-color: #f59e0b;
+	}
+
+	.conversion-icon {
+		background-color: #fef3c7;
+		color: #d97706;
 	}
 
 	.generic-item {
